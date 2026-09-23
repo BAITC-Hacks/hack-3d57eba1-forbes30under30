@@ -6,6 +6,7 @@ import * as validateSet from "./validate_set";
 import * as scoreSet from "./score_set";
 import * as getContributions from "./get_contributions";
 import * as getDistrictProfile from "./get_district_profile";
+import * as suggestSwaps from "./suggest_swaps";
 import type { ToolResult } from "./shared";
 
 export { decisionsInputSchema, normalizeToolDecisions, toolDecisionSchema } from "./shared";
@@ -14,6 +15,7 @@ export const agentTools: ChatCompletionTool[] = [
   zodFunction({ name: "validate_set", parameters: validateSet.inputSchema, description: validateSet.description }),
   zodFunction({ name: "score_set", parameters: scoreSet.inputSchema, description: scoreSet.description }),
   zodFunction({ name: "get_contributions", parameters: getContributions.inputSchema, description: getContributions.description }),
+  zodFunction({ name: "suggest_swaps", parameters: suggestSwaps.inputSchema, description: suggestSwaps.description }),
   zodFunction({ name: "get_district_profile", parameters: getDistrictProfile.inputSchema, description: getDistrictProfile.description }),
 ];
 
@@ -25,6 +27,7 @@ export function dispatchTool(
       case "validate_set": return validateSet.execute(args);
       case "score_set": return scoreSet.execute(args, originalDecisions);
       case "get_contributions": return getContributions.execute(args);
+      case "suggest_swaps": return suggestSwaps.execute(args, originalDecisions);
       case "get_district_profile": return getDistrictProfile.execute(args);
       default: {
         const error = `Неизвестный инструмент: ${name}.`;

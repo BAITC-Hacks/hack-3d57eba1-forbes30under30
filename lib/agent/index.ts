@@ -48,7 +48,7 @@ export async function runAgent(decisions: readonly Decision[]): Promise<AgentRes
       { role: "user", content: scenarioPrompt(decisions) },
     ];
     const outputs: unknown[] = [];
-    const required = ["score_set", "get_contributions"];
+    const required = ["score_set", "get_contributions", "suggest_swaps"];
     let completedRequired = 0;
     let toolCalls = 0;
     let reportRetries = 0;
@@ -123,7 +123,7 @@ export async function runAgent(decisions: readonly Decision[]): Promise<AgentRes
       if (mandatory) throw new AgentError("Агент завершил ответ до обязательных вызовов инструментов.");
       try {
         const report = validateReport(message.content ?? "", outputs);
-        steps.push({ name: "report", detail: "Отчёт прошёл проверку структуры и чисел из результатов инструментов." });
+        steps.push({ name: "report", detail: "Отчёт прошёл проверку структуры, чисел и соответствия рекомендаций рассчитанным заменам." });
         return { report, steps };
       } catch (error) {
         if (reportRetries >= 1) throw new AgentError("Ответ AI повторно не прошёл проверку. Числовой расчёт сохранён; повторите анализ.");

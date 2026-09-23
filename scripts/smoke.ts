@@ -109,6 +109,21 @@ async function main(): Promise<void> {
   near("Фиксированная синергия M10+M12", exampleResult.districts.find((item) => item.id === "nura")?.after.B1 ?? NaN, 67.5);
   equal("Исходные датасеты не изменились", JSON.stringify({ districtsData, measuresData }), dataBefore);
   equal("Входные решения не изменились", JSON.stringify(scenarios), scenariosBefore);
+
+  const { bestOverall, suggestSwaps } = await import("../lib/engine/optimize");
+  const suggestions = suggestSwaps(example);
+  equal("Для примера есть замена с положительной дельтой", suggestions.some((item) => item.delta > 0), true);
+  console.log(`Замены примера: ${suggestions.map((item) => `${item.replace} → ${item.with}${item.districtId ? `@${item.districtId}` : ""}: +${item.delta.toFixed(2)}`).join("; ")}`);
+  const cached = existsSync("data/best.json");
+  const started = performance.now();
+  const best = await bestOverall();
+  const elapsed = performance.now() - started;
+  equal("bestOverall возвращает топ-10", best.length, 10);
+  equal(`Лучший Score не ниже 57.24; получено ${best[0]?.score.toFixed(2)}`, best[0]?.score >= score(scenarios[2].decisions).score - 1e-10, true);
+  equal("Лучший набор валиден", validate(best[0].decisions), { ok: true, errors: [] });
+  near("Лучший Score подтверждён основным движком", best[0].score, score(best[0].decisions).score);
+  console.log(`bestOverall: ${elapsed.toFixed(1)} мс (${cached ? "кэш" : "полный перебор"}); Score = ${best[0].score.toFixed(2)}, стоимость = ${best[0].cost}; ${best[0].decisions.map((item) => `${item.measureId}${item.districtId ? `@${item.districtId}` : ""}`).join(", ")}`);
+
   if (process.env.OPENAI_API_KEY?.trim()) {
     const [{ runAgent }, { reportSchema }] = await Promise.all([
       import("../lib/agent"),
@@ -122,8 +137,10 @@ async function main(): Promise<void> {
     equal("AI-отчёт соответствует схеме", reportSchema.safeParse(result.report).success, true);
     const scoreStep = result.steps.findIndex((step) => step.name === "score_set");
     const contributionsStep = result.steps.findIndex((step) => step.name === "get_contributions");
+    const suggestionsStep = result.steps.findIndex((step) => step.name === "suggest_swaps");
     equal("AI вызвал score_set", scoreStep >= 0, true);
     equal("AI вызвал get_contributions после score_set", contributionsStep > scoreStep, true);
+    equal("AI вызвал suggest_swaps после get_contributions", suggestionsStep > contributionsStep, true);
     console.log(`AI-отчёт для примера из ТЗ:\n${JSON.stringify(result.report, null, 2)}`);
     console.log(`AI-инструменты: ${result.steps.map((step) => step.name).join(" → ")}`);
   } else {

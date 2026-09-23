@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 
-export const OPENAI_MODEL = process.env.OPENAI_MODEL?.trim() || "gpt-4.1-mini";
+export const OPENAI_MODEL = process.env.OPENAI_MODEL?.trim() || "gpt-6-sol";
 
 // Create on demand so the app and deterministic engine work without an API key.
 export function createOpenAIClient(): OpenAI {

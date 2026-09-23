@@ -10,7 +10,7 @@ import {
 } from "./shared";
 
 export const inputSchema = decisionsInputSchema;
-export const description = "Проверяет и рассчитывает полный набор через движок. Возвращает Score, дельту к базе, показатели районов, критические значения, штраф, синергии, лаги, стоимость и каталог мер. Для другого допустимого набора возвращает comparison.expectedDelta относительно исходного сценария: только это значение можно использовать как ожидаемую дельту рекомендации. Недопустимые наборы не рассчитываются.";
+export const description = "Проверяет и рассчитывает полный набор через движок. Возвращает Score, дельту к базе, показатели районов, критические значения, штраф, синергии, лаги, стоимость и каталог мер. Для другого допустимого набора возвращает comparison.expectedDelta относительно исходного сценария. Рекомендации разрешены только из suggest_swaps; comparison не добавляет допустимых замен. Недопустимые наборы не рассчитываются.";
 
 export function execute(args: unknown, originalDecisions: readonly Decision[]): ToolResult {
   const { decisions: wireDecisions } = inputSchema.parse(args);

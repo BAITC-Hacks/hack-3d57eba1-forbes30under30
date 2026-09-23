@@ -1,9 +1,14 @@
 import { z } from "zod";
-import { reportSchema, reportWireSchema, type AgentReport } from "./schemas";
+import { reportSchema, type AgentReport } from "./schemas";
 
 const explanationFactsSchema = z.object({
   selectedMeasures: z.array(z.object({ id: z.string() })),
   scoreRules: z.object({ weakestWeightPercent: z.number(), criticalThreshold: z.number() }),
+});
+const swapFactsSchema = z.object({
+  ok: z.literal(true),
+  tool: z.literal("suggest_swaps"),
+  suggestions: z.array(z.object({ change: z.string(), delta: z.number().finite() })),
 });
 
 // A numeric claim must occur in a tool result; this catches invented arithmetic
@@ -15,34 +20,34 @@ export function validateReport(content: string, outputs: readonly unknown[]): Ag
   } catch {
     throw new Error("Ожидался корректный JSON без markdown.");
   }
-  const parsed = reportWireSchema.safeParse(json);
+  const parsed = reportSchema.safeParse(json);
   if (!parsed.success) {
     throw new Error(parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; "));
   }
-  const report = reportSchema.parse({
-    ...parsed.data,
-    recommendations: parsed.data.recommendations.map(({ expectedDelta, ...recommendation }) => ({
-      ...recommendation,
-      ...(expectedDelta === null ? {} : { expectedDelta }),
-    })),
-  });
+  const report = parsed.data;
 
   const numbers = new Set<number>();
-  const verifiedDeltas = new Set<number>();
   function collect(value: unknown) {
     if (typeof value === "number" && Number.isFinite(value)) numbers.add(value);
     if (Array.isArray(value)) value.forEach(collect);
     else if (value && typeof value === "object") Object.values(value).forEach(collect);
   }
-  for (const output of outputs) {
-    collect(output);
-    if (output && typeof output === "object" && "comparison" in output) {
-      const comparison = output.comparison;
-      if (comparison && typeof comparison === "object" && "expectedDelta" in comparison
-        && typeof comparison.expectedDelta === "number") {
-        verifiedDeltas.add(comparison.expectedDelta);
-      }
+  outputs.forEach(collect);
+  const swapFacts = outputs.map((output) => swapFactsSchema.safeParse(output))
+    .find((result) => result.success);
+  if (!swapFacts?.success) throw new Error("Для рекомендаций отсутствует успешный результат suggest_swaps.");
+  const suggestions = swapFacts.data.suggestions;
+  if (suggestions.length > 0 && report.recommendations.length === 0) {
+    throw new Error("Добавь хотя бы одну рекомендацию из suggestions инструмента suggest_swaps.");
+  }
+  const usedChanges = new Set<string>();
+  for (const recommendation of report.recommendations) {
+    if (!suggestions.some((suggestion) => suggestion.change === recommendation.change
+      && suggestion.delta === recommendation.expectedDelta)) {
+      throw new Error("Рекомендация не подтверждена suggest_swaps: дословно скопируй change и соответствующую delta в expectedDelta. Если suggestions пуст, recommendations должен быть [].");
     }
+    if (usedChanges.has(recommendation.change)) throw new Error("Не повторяй одну и ту же рекомендацию.");
+    usedChanges.add(recommendation.change);
   }
   const texts = [report.summary, ...report.strengths, ...report.risks, ...report.tradeoffs,
     ...report.recommendations.flatMap((item) => [item.change, item.why])];
@@ -52,11 +57,6 @@ export function validateReport(content: string, outputs: readonly unknown[]): Ag
     for (const [token] of tokens) {
       const value = Number(token.replace(",", ".").replace("−", "-"));
       if (!numbers.has(value)) throw new Error(`Число ${token} отсутствует в результатах инструментов.`);
-    }
-  }
-  for (const recommendation of report.recommendations) {
-    if (recommendation.expectedDelta !== undefined && !verifiedDeltas.has(recommendation.expectedDelta)) {
-      throw new Error("expectedDelta не подтверждён сравнением альтернативы в score_set.");
     }
   }
   const facts = explanationFactsSchema.safeParse(outputs[0]);

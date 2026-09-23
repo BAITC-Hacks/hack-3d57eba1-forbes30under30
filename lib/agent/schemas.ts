@@ -15,18 +15,11 @@ export const reportSchema = z.object({
   ...reportFields,
   recommendations: z.array(z.object({
     ...recommendationFields,
-    expectedDelta: z.number().finite().optional(),
+    expectedDelta: z.number().finite(),
   }).strict()),
 }).strict();
 
-// OpenAI strict JSON schemas require every key; null means no calculated delta.
-export const reportWireSchema = z.object({
-  ...reportFields,
-  recommendations: z.array(z.object({
-    ...recommendationFields,
-    expectedDelta: z.number().finite().nullable(),
-  }).strict()),
-}).strict();
+export const reportWireSchema = reportSchema;
 
 export const agentStepSchema = z.object({
   name: z.string(),
