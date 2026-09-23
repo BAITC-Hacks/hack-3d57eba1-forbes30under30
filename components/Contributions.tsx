@@ -1,13 +1,8 @@
 import { districts, measures } from "@/lib/engine/data";
 import type { Contribution } from "@/lib/engine/score";
+import { formatDelta } from "@/lib/format";
 
 type ContributionsProps = { contributions: Contribution[] };
-
-const signed = new Intl.NumberFormat("ru-RU", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-  signDisplay: "always",
-});
 
 export default function Contributions({ contributions }: ContributionsProps) {
   const maximum = Math.max(...contributions.map(({ contribution }) => Math.abs(contribution)), 0.01);
@@ -19,7 +14,7 @@ export default function Contributions({ contributions }: ContributionsProps) {
         Разница между Score полного набора и Score без каждой меры. Из-за синергий и штрафов вклады не складываются в общую дельту.
       </p>
       <div aria-hidden="true" className="mt-5 grid grid-cols-3 text-xs text-slate-500">
-        <span>Снижение</span><span className="text-center">0</span><span className="text-right">Рост</span>
+        <span>Снижение</span><span className="text-center">0,00</span><span className="text-right">Рост</span>
       </div>
       <ul className="mt-3 space-y-5">
         {contributions.map(({ measureId, districtId, contribution }) => {
@@ -34,7 +29,7 @@ export default function Contributions({ contributions }: ContributionsProps) {
                   <span className="text-slate-500"> / {district?.name ?? "Весь город"}</span>
                 </span>
                 <span className={`shrink-0 font-semibold tabular-nums ${contribution > 0 ? "text-emerald-700" : contribution < 0 ? "text-rose-700" : "text-slate-500"}`}>
-                  {signed.format(contribution)}
+                  {formatDelta(contribution)}
                 </span>
               </div>
               <div aria-hidden="true" className="relative mt-2 h-3 rounded-full bg-slate-100">

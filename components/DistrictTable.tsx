@@ -1,11 +1,8 @@
 import { indicators } from "@/lib/engine/data";
 import type { DistrictScore } from "@/lib/engine/score";
+import { formatNumber } from "@/lib/format";
 
 type DistrictTableProps = { districts: DistrictScore[]; affectedDistrictIds?: string[] };
-
-const number = new Intl.NumberFormat("ru-RU", {
-  maximumFractionDigits: 2,
-});
 
 function Change({ before, after }: { before: number; after: number }) {
   const color = after > before ? "text-emerald-700" : after < before ? "text-rose-700" : "text-slate-700";
@@ -13,11 +10,11 @@ function Change({ before, after }: { before: number; after: number }) {
   return (
     <span className="inline-flex items-center gap-1 whitespace-nowrap tabular-nums">
       <span className={`rounded px-1 py-0.5 ${before < 40 ? "bg-rose-100 font-medium text-rose-800" : "text-slate-500"}`}>
-        <span className="sr-only">До: </span>{number.format(before)}
+        <span className="sr-only">До: </span>{formatNumber(before)}
       </span>
       <span aria-hidden="true" className="text-slate-400">→</span>
       <span className={`rounded px-1 py-0.5 font-semibold ${color} ${after < 40 ? "bg-rose-100" : ""}`}>
-        <span className="sr-only">После: </span>{number.format(after)}
+        <span className="sr-only">После: </span>{formatNumber(after)}
       </span>
       <span className="sr-only">, {description}</span>
     </span>
@@ -46,7 +43,7 @@ export default function DistrictTable({ districts, affectedDistrictIds = [] }: D
           <caption className="sr-only">Показатели пяти районов до и после применения решений, включая итоговый индекс D</caption>
           <thead className="border-y border-slate-200 bg-slate-50 text-slate-600">
             <tr>
-              <th scope="col" className="sticky left-0 z-10 bg-slate-50 px-5 py-4 font-semibold">Район</th>
+              <th scope="col" className="sticky left-0 z-20 bg-slate-50 px-3 py-4 font-semibold sm:px-5">Район</th>
               {indicators.map((indicator) => (
                 <th key={indicator.code} scope="col" className="px-2 py-4 text-center font-semibold">
                   <span
@@ -62,13 +59,13 @@ export default function DistrictTable({ districts, affectedDistrictIds = [] }: D
                   </span>
                 </th>
               ))}
-              <th scope="col" className="px-4 py-4 text-center font-semibold" title="Взвешенный индекс качества жизни района">D района</th>
+              <th scope="col" className="sticky right-0 z-20 whitespace-nowrap border-l border-slate-200 bg-slate-50 px-2 py-4 text-center font-semibold sm:px-4" title="Взвешенный индекс качества жизни района">Индекс района D</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {districts.map((district) => (
               <tr key={district.id}>
-                <th scope="row" className={`sticky left-0 z-10 px-5 py-5 font-semibold text-slate-900 ${affectedDistrictIds.includes(district.id) ? "bg-amber-50" : "bg-white"}`}>
+                <th scope="row" className={`sticky left-0 z-10 whitespace-nowrap px-3 py-5 font-semibold text-slate-900 sm:px-5 ${affectedDistrictIds.includes(district.id) ? "bg-amber-50" : "bg-white"}`}>
                   {district.name}
                   {affectedDistrictIds.includes(district.id) && <span className="mt-1 block text-xs font-medium text-amber-800">Событие</span>}
                 </th>
@@ -77,7 +74,7 @@ export default function DistrictTable({ districts, affectedDistrictIds = [] }: D
                     <Change before={district.before[code]} after={district.after[code]} />
                   </td>
                 ))}
-                <td className="border-l border-slate-100 bg-indigo-50/40 px-4 py-5 text-center">
+                <td className="sticky right-0 z-10 border-l border-slate-200 bg-indigo-50 px-2 py-5 text-center sm:px-4">
                   <Change before={district.D_before} after={district.D_after} />
                 </td>
               </tr>

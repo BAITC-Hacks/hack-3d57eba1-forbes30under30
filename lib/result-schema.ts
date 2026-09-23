@@ -11,7 +11,7 @@ export const suggestionSchema = z.object({
 });
 export type Suggestion = z.infer<typeof suggestionSchema>;
 
-export const analysisSchema = z.object({
+export const calculationSchema = z.object({
   eventId: z.string().optional(),
   activeEvent: z.object({
     id: z.string(), title: z.string(), description: z.string(),
@@ -35,10 +35,17 @@ export const analysisSchema = z.object({
   suggestions: z.array(suggestionSchema),
   bestKnownScore: number,
   optimalDecisions: z.array(decisionSchema).length(5),
+});
+export type Calculation = z.infer<typeof calculationSchema>;
+
+export const agentAnalysisSchema = z.object({
   report: reportSchema.nullable(),
   steps: z.array(agentStepSchema),
   aiError: z.string().optional(),
 });
+export type AgentAnalysis = z.infer<typeof agentAnalysisSchema>;
+
+export const analysisSchema = calculationSchema.extend(agentAnalysisSchema.shape);
 export type Analysis = z.infer<typeof analysisSchema>;
 
 export const apiErrorSchema = z.object({ error: z.string().optional(), errors: z.array(z.string()).optional() });

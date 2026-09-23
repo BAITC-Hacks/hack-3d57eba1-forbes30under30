@@ -4,9 +4,10 @@ import os from "node:os";
 import path from "node:path";
 import scenarios from "../data/sample/scenarios.json";
 import { POST as analyze } from "../app/api/analyze/route";
+import { POST as calculate } from "../app/api/calc/route";
 import { GET, POST as save } from "../app/api/scenarios/route";
 import { score } from "../lib/engine/score";
-import { analysisSchema } from "../lib/result-schema";
+import { agentAnalysisSchema, calculationSchema } from "../lib/result-schema";
 import { savedScenarioSchema } from "../lib/scenarios/schema";
 import { applySuggestion } from "../lib/suggestions";
 import { buildMarkdownReport } from "../lib/markdown-report";
@@ -24,11 +25,14 @@ async function main() {
   delete process.env.OPENAI_API_KEY;
   try {
     process.chdir(temporaryDirectory);
-    const response = await analyze(request({ decisions, eventId }));
+    const response = await calculate(request({ decisions, eventId }));
     assert.equal(response.status, 200);
-    const result = analysisSchema.parse(await response.json());
-    assert.equal(result.report, null);
-    assert.ok(result.aiError);
+    const result = calculationSchema.parse(await response.json());
+    const agentResponse = await analyze(request({ decisions, eventId }));
+    assert.equal(agentResponse.status, 200);
+    const agent = agentAnalysisSchema.parse(await agentResponse.json());
+    assert.equal(agent.report, null);
+    assert.ok(agent.aiError);
     assert.equal(result.eventId, eventId);
     assert.equal(result.activeEvent?.id, eventId);
     assert.deepEqual(result.calc, score(decisions, { eventId }));
@@ -55,11 +59,12 @@ async function main() {
     console.log("✓ Первое сохранение создаёт файл и сохраняет событие для повторного расчёта");
 
     for (const invalidEvent of ["unknown", "", null, 123]) {
+      assert.equal((await calculate(request({ decisions, eventId: invalidEvent }))).status, 400);
       assert.equal((await analyze(request({ decisions, eventId: invalidEvent }))).status, 400);
       assert.equal((await save(request({ name: "Ошибка", decisions, eventId: invalidEvent }))).status, 400);
     }
     assert.deepEqual(await (await GET()).json(), [saved]);
-    console.log("✓ Неизвестные события отклоняются обоими API без изменения сценариев");
+    console.log("✓ Неизвестные события отклоняются всеми API без изменения сценариев");
 
     const report = {
       summary: "Разбор <script> и таблица | результата",

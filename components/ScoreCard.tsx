@@ -1,4 +1,5 @@
 import type { ScoreResult } from "@/lib/engine/score";
+import { formatDelta, formatNumber } from "@/lib/format";
 
 type ScoreCardProps = {
   calc: ScoreResult;
@@ -8,53 +9,48 @@ type ScoreCardProps = {
   disabled: boolean;
 };
 
-const number = new Intl.NumberFormat("ru-RU", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-const signed = new Intl.NumberFormat("ru-RU", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-  signDisplay: "always",
-});
-
 export default function ScoreCard({
   calc, cost, bestKnownScore, onShowOptimal, disabled,
 }: ScoreCardProps) {
-  const weakest = calc.districts.reduce((current, district) => (
-    district.D_after < current.D_after ? district : current
-  ));
+  const weakest = calc.districts.reduce<(typeof calc.districts)[number] | undefined>((current, district) => (
+    Number.isFinite(district.D_after) && (!current || district.D_after < current.D_after) ? district : current
+  ), undefined);
+  const isOptimal = Number.isFinite(calc.score) && Number.isFinite(bestKnownScore)
+    && Math.abs(calc.score - bestKnownScore) <= 1e-9;
   const deltaColor = calc.delta > 0
     ? "bg-emerald-50 text-emerald-800"
     : calc.delta < 0 ? "bg-rose-50 text-rose-800" : "bg-slate-100 text-slate-700";
 
   return (
     <section aria-labelledby="score-card-title" className="min-w-0 rounded-2xl border border-indigo-100 bg-white p-5 shadow-sm sm:p-6">
-      <h3 id="score-card-title" className="text-sm font-semibold uppercase tracking-wider text-indigo-700">
-        Качество жизни · Score
-      </h3>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 id="score-card-title" className="text-sm font-semibold uppercase tracking-wider text-indigo-700">
+          Качество жизни · Score
+        </h3>
+        {isOptimal && <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">Оптимальный набор</span>}
+      </div>
       <div className="mt-4 flex flex-wrap items-end gap-x-4 gap-y-3">
         <p className="text-6xl font-semibold tracking-tight text-slate-950 tabular-nums sm:text-7xl">
-          {number.format(calc.score)}
+          {formatNumber(calc.score)}
         </p>
         <p className={`mb-1 rounded-lg px-3 py-1.5 text-sm font-semibold tabular-nums ${deltaColor}`}>
-          {signed.format(calc.delta)} к базе {number.format(calc.baseScore)}
+          {formatDelta(calc.delta)} к базе {formatNumber(calc.baseScore)}
         </p>
       </div>
 
       <dl className="mt-7 grid grid-cols-2 gap-x-5 gap-y-5 border-t border-slate-100 pt-5">
         <div>
           <dt className="text-sm text-slate-500">Стоимость</dt>
-          <dd className="mt-1 text-xl font-semibold text-slate-900 tabular-nums">{cost} <span className="text-sm font-normal text-slate-500">из 100</span></dd>
+          <dd className="mt-1 text-xl font-semibold text-slate-900 tabular-nums">{formatNumber(cost)} <span className="text-sm font-normal text-slate-500">из {formatNumber(100)}</span></dd>
         </div>
         <div>
           <dt className="text-sm text-slate-500">Средний индекс · D_avg</dt>
-          <dd className="mt-1 text-xl font-semibold text-slate-900 tabular-nums">{number.format(calc.dAvg)}</dd>
+          <dd className="mt-1 text-xl font-semibold text-slate-900 tabular-nums">{formatNumber(calc.dAvg)}</dd>
         </div>
         <div>
           <dt className="text-sm text-slate-500">Самый слабый район</dt>
           <dd className="mt-1 font-semibold text-slate-900">
-            {weakest.name} <span className="whitespace-nowrap tabular-nums">· {number.format(weakest.D_after)}</span>
+            {weakest ? <>{weakest.name} <span className="whitespace-nowrap tabular-nums">· {formatNumber(weakest.D_after)}</span></> : "—"}
           </dd>
         </div>
         <div>
@@ -67,7 +63,7 @@ export default function ScoreCard({
 
       <div className="mt-6 rounded-xl bg-indigo-50 p-4">
         <p className="text-sm font-semibold text-indigo-950">
-          Лучший возможный: <span className="tabular-nums">{number.format(bestKnownScore)}</span>
+          Лучший возможный: <span className="tabular-nums">{formatNumber(bestKnownScore)}</span>
         </p>
         <button
           type="button"

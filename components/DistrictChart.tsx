@@ -2,10 +2,11 @@
 
 import { useId, useState } from "react";
 import { indicators, rules } from "@/lib/engine/data";
+import { formatNumber } from "@/lib/format";
 import type { DistrictScore } from "@/lib/engine/score";
 
 type Props = { districts: DistrictScore[]; affectedDistrictIds?: string[] };
-const format = (value: number) => value.toLocaleString("ru-RU", { maximumFractionDigits: 2 });
+const format = formatNumber;
 const bar = (value: number) => Math.max(0, Math.min(100, value)) * 2.5;
 
 function Bars({ before, after, label }: { before: number; after: number; label: string }) {

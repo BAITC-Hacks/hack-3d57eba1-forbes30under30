@@ -1,6 +1,7 @@
 "use client";
 
 import { districts, indicators } from "@/lib/engine/data";
+import { formatNumber, formatDelta } from "@/lib/format";
 import { events } from "@/lib/engine/events";
 
 type Props = {
@@ -10,7 +11,7 @@ type Props = {
   beforeScore?: number;
   afterScore?: number;
 };
-const format = (value: number) => value.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const format = formatNumber;
 
 export default function EventPicker({ eventId, onChange, disabled, beforeScore, afterScore }: Props) {
   const event = events.find((item) => item.id === eventId);
@@ -47,7 +48,7 @@ export default function EventPicker({ eventId, onChange, disabled, beforeScore, 
           <ul className="mt-3 flex flex-wrap gap-2 text-xs font-medium text-rose-800">
             {Object.entries(event.effects).flatMap(([districtId, effects]) => Object.entries(effects).map(([code, delta]) => (
               <li key={`${districtId}-${code}`} title={indicators.find((item) => item.code === code)?.name} className="rounded-md bg-rose-50 px-2 py-1">
-                {districts.find((item) => item.id === districtId)?.name}: {code} {delta > 0 ? "+" : ""}{delta}
+                {districts.find((item) => item.id === districtId)?.name}: {code} {formatDelta(delta)}
               </li>
             )))}
           </ul>

@@ -115,7 +115,7 @@ async function main(): Promise<void> {
       }
     });
 
-    await check("API сохраняет расчёт без ключа и отклоняет неверный набор", async () => {
+    await check("API анализа возвращает только разбор и отклоняет неверный набор", async () => {
       const { POST } = await import("../app/api/analyze/route");
       const makeRequest = (decisions: unknown) => new Request("http://localhost/api/analyze", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ decisions }),
@@ -124,17 +124,13 @@ async function main(): Promise<void> {
       try {
         const success = await POST(makeRequest(example));
         const body = await success.json() as {
-          calc: { score: number }; report: unknown; steps: unknown[]; aiError?: string;
-          suggestions: { delta: number }[]; bestKnownScore?: number;
+          report: unknown; steps: unknown[]; aiError?: string;
         };
         assert.equal(success.status, 200);
-        assert.equal(body.calc.score, score(example).score);
+        assert.deepEqual(Object.keys(body).sort(), ["aiError", "report", "steps"]);
         assert.equal(body.report, null);
         assert.match(body.aiError ?? "", /ключ|OPENAI_API_KEY/i);
         assert.ok(Array.isArray(body.steps));
-        assert.ok(body.suggestions.length > 0);
-        assert.ok(body.suggestions.every(({ delta }) => delta > 0));
-        if (body.bestKnownScore !== undefined) assert.ok(Number(body.bestKnownScore.toFixed(2)) >= 57.24);
 
         const invalid = await POST(makeRequest(example.slice(0, 4)));
         const errors = await invalid.json() as { errors: string[]; calc?: unknown };

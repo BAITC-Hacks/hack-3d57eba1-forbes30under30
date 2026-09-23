@@ -37,6 +37,7 @@ async function main(): Promise<void> {
   const dataBefore = JSON.stringify({ districtsData, measuresData });
   const scenariosBefore = JSON.stringify(scenarios);
   const base = score([]);
+  const summary = [{ Сценарий: "База", "Ожидаемый Score": "52.56", "Фактический Score": base.score.toFixed(2) }];
   equal("Базовый Score", base.score.toFixed(2), "52.56");
   equal("Базовый D_avg", base.dAvg.toFixed(2), "56.86");
   equal("Базовый min(D)", base.minDistrict.toFixed(2), "49.18");
@@ -63,6 +64,7 @@ async function main(): Promise<void> {
       near(`${scenario.name}: вклад ${contribution.measureId}`, contribution.contribution, result.score - score(without).score);
     }
     console.log(`${scenario.name}: Score = ${result.score.toFixed(2)}, стоимость = ${cost}`);
+    summary.push({ Сценарий: scenario.name, "Ожидаемый Score": scenario.expectedScore.toFixed(2), "Фактический Score": result.score.toFixed(2) });
   }
 
   const example = scenarios[0].decisions;
@@ -74,6 +76,10 @@ async function main(): Promise<void> {
   equal("База с аварией в Алматы", eventBase.score.toFixed(2), "51.36");
   equal("Пример с аварией в Алматы", eventExample.score.toFixed(2), "55.34");
   console.log(`Событие «Авария на теплосетях в Алматы»: база = ${eventBase.score.toFixed(2)}, пример = ${eventExample.score.toFixed(2)} (без события: ${base.score.toFixed(2)} и ${score(example).score.toFixed(2)})`);
+  summary.push(
+    { Сценарий: "База с аварией в Алматы", "Ожидаемый Score": "51.36", "Фактический Score": eventBase.score.toFixed(2) },
+    { Сценарий: "Пример с аварией в Алматы", "Ожидаемый Score": "55.34", "Фактический Score": eventExample.score.toFixed(2) },
+  );
   function reject(label: string, input: unknown, reason: RegExp): void {
     const result = validate(input);
     equal(`${label}: отклонён`, result.ok, false);
@@ -155,6 +161,8 @@ async function main(): Promise<void> {
     console.log("AI-смоук пропущен: OPENAI_API_KEY не задан.");
   }
   console.log(`Смоук-тест пройден: ${checks} проверок.`);
+  console.table(summary);
+  console.log("ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ");
 }
 
 main().catch((error: unknown) => {

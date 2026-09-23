@@ -2,11 +2,14 @@
 
 import type { AgentReport as Report, AgentStep } from "@/lib/agent/schemas";
 import type { Suggestion } from "@/lib/result-schema";
+import { formatDelta, formatNumber } from "@/lib/format";
 
 type AgentReportProps = {
   report: Report | null;
   steps: AgentStep[];
   suggestions: Suggestion[];
+  score?: number;
+  bestKnownScore?: number;
   aiError?: string;
   isAnalyzing: boolean;
   onRetry: () => void;
@@ -25,14 +28,15 @@ function shortDetail(detail: string): string {
   return summary.length > 300 ? `${summary.slice(0, 297)}…` : summary;
 }
 
-const formatDelta = (value: number) => `${value > 0 ? "+" : ""}${value.toLocaleString("ru-RU", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-})}`;
-
 export default function AgentReport({
-  report, steps, suggestions, aiError, isAnalyzing, onRetry, onApply,
+  report, steps, suggestions, score, bestKnownScore, aiError, isAnalyzing, onRetry, onApply,
 }: AgentReportProps) {
+  const canCompare = score !== undefined && bestKnownScore !== undefined
+    && Number.isFinite(score) && Number.isFinite(bestKnownScore);
+  const isOptimal = canCompare && Math.abs(score - bestKnownScore) <= 1e-9;
+  const hasNoImprovingSwap = suggestions.length === 0 && canCompare && score < bestKnownScore - 1e-9;
+  const recommendations = report?.recommendations ?? [];
+  const hasOptimizerConclusion = suggestions.length === 0 && (isOptimal || hasNoImprovingSwap);
   const sections = report ? [
     { title: "Сильные стороны", items: report.strengths, color: "bg-emerald-500" },
     { title: "Риски", items: report.risks, color: "bg-rose-500" },
@@ -92,39 +96,49 @@ export default function AgentReport({
                   </div>
                 ))}
               </div>
-              <div className="border-t border-slate-100 pt-5">
-                <h3 className="text-base font-semibold text-slate-900">Рекомендации</h3>
-                {report.recommendations.length > 0 ? (
-                  <ul className="mt-3 space-y-3">
-                    {report.recommendations.map((recommendation, index) => {
-                      const suggestion = suggestions.find((item) => item.change === recommendation.change
-                        && Number(item.delta.toFixed(2)) === recommendation.expectedDelta);
-                      return (
-                        <li key={index} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <p className="max-w-3xl font-semibold text-slate-900">{recommendation.change}</p>
-                            <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold tabular-nums ${recommendation.expectedDelta > 0 ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-700"}`}>
-                              Score {formatDelta(recommendation.expectedDelta)}
-                            </span>
-                          </div>
-                          <p className="mt-2">{recommendation.why}</p>
-                          {suggestion && (
-                            <button
-                              type="button"
-                              onClick={() => onApply(suggestion)}
-                              disabled={isAnalyzing}
-                              aria-label={`Применить: ${recommendation.change}`}
-                              className="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              Применить
-                            </button>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : <p className="mt-2 text-slate-500">Дополнительных рекомендаций нет.</p>}
-              </div>
+            </div>
+          )}
+          {(hasOptimizerConclusion || recommendations.length > 0) && (
+            <div className="mt-6 border-t border-slate-100 pt-5 text-sm leading-7 text-slate-700">
+              <h3 className="text-base font-semibold text-slate-900">Рекомендации</h3>
+              {suggestions.length === 0 && isOptimal ? (
+                <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium leading-6 text-emerald-900">
+                  Это лучший возможный набор из 694 395 допустимых вариантов
+                </p>
+              ) : hasNoImprovingSwap ? (
+                <p className="mt-3 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm leading-6 text-indigo-950">
+                  Заменой одной меры набор не улучшить. Лучший возможный результат — {formatNumber(bestKnownScore)}, нажмите «Показать оптимальный набор»
+                </p>
+              ) : (
+                <ul className="mt-3 space-y-3">
+                  {recommendations.map((recommendation, index) => {
+                    const suggestion = suggestions.find((item) => item.change === recommendation.change
+                      && Number(item.delta.toFixed(2)) === recommendation.expectedDelta);
+                    return (
+                      <li key={index} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <p className="max-w-3xl font-semibold text-slate-900">{recommendation.change}</p>
+                          <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold tabular-nums ${recommendation.expectedDelta > 0 ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-700"}`}>
+                            Score {formatDelta(recommendation.expectedDelta)}
+                          </span>
+                        </div>
+                        <p className="mt-2">{recommendation.why}</p>
+                        {suggestion && (
+                          <button
+                            type="button"
+                            onClick={() => onApply(suggestion)}
+                            disabled={isAnalyzing}
+                            aria-label={`Применить: ${recommendation.change}`}
+                            className="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Применить
+                          </button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
           )}
         </>

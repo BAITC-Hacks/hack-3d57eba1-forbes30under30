@@ -1,5 +1,7 @@
 import { districts, indicators, rules } from "@/lib/engine/data";
 
+import { formatNumber } from "@/lib/format";
+
 export default function DistrictOverview() {
   return (
     <section aria-labelledby="districts-title" className="mt-14 border-t border-slate-200 pt-10">
@@ -18,7 +20,7 @@ export default function DistrictOverview() {
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-lg font-semibold">{district.name}</h3>
               <span className="whitespace-nowrap text-sm text-slate-500">
-                {Math.round(district.population * 100)}% населения
+                {formatNumber(district.population * 100)}% населения
               </span>
             </div>
             <p className="mt-2 min-h-10 text-sm leading-5 text-slate-600">{district.profile}</p>
@@ -35,7 +37,7 @@ export default function DistrictOverview() {
                     <dd className={`min-w-8 rounded-md px-1.5 py-0.5 text-right text-sm font-semibold tabular-nums ${
                       isCritical ? "bg-rose-50 text-rose-700" : "text-slate-800"
                     }`}>
-                      {value}
+                      {formatNumber(value)}
                       {isCritical && <span className="sr-only"> — ниже критического порога</span>}
                     </dd>
                   </div>

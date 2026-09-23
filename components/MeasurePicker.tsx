@@ -10,19 +10,22 @@ import {
   type Decision,
 } from "@/lib/engine/data";
 import { validate } from "@/lib/engine/validate";
+import { formatNumber, formatDelta } from "@/lib/format";
 
 type MeasurePickerProps = {
   decisions: Decision[];
   onChange: (decisions: Decision[]) => void;
   onCalculate: () => void;
-  isCalculating: boolean;
+  isBusy: boolean;
+  isAnalyzing: boolean;
 };
 
 export default function MeasurePicker({
   decisions,
   onChange,
   onCalculate,
-  isCalculating,
+  isBusy,
+  isAnalyzing,
 }: MeasurePickerProps) {
   const validation = validate(decisions);
   const used = decisions.reduce(
@@ -58,7 +61,7 @@ export default function MeasurePicker({
       aria-label="Выбор решений"
       onSubmit={(event) => {
         event.preventDefault();
-        if (validation.ok && !isCalculating) onCalculate();
+        if (validation.ok && !isBusy) onCalculate();
       }}
     >
       <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6" aria-labelledby="budget-heading">
@@ -66,7 +69,7 @@ export default function MeasurePicker({
           <div>
             <h2 id="budget-heading" className="text-lg font-semibold text-slate-900">Ваш план развития</h2>
             <p className={`mt-2 text-sm font-medium sm:text-base ${overBudget ? "text-rose-700" : "text-slate-700"}`}>
-              Бюджет {rules.budget} · Использовано {used} · Остаток {remaining}
+              Бюджет {formatNumber(rules.budget)} · Использовано {formatNumber(used)} · Остаток {formatNumber(remaining)}
             </p>
           </div>
           <span className={`rounded-full px-3 py-1.5 text-sm font-semibold ${decisions.length > rules.decisionsExactly ? "bg-rose-50 text-rose-700" : "bg-slate-100 text-slate-700"}`}>
@@ -104,15 +107,15 @@ export default function MeasurePicker({
         <div className="mt-6 flex flex-wrap gap-3">
           <button
             type="submit"
-            disabled={!validation.ok || isCalculating}
+            disabled={!validation.ok || isBusy}
             className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
           >
-            {isCalculating ? "Агент анализирует…" : "Рассчитать"}
+            {isBusy ? (isAnalyzing ? "Агент анализирует…" : "Рассчитываем…") : "Рассчитать"}
           </button>
           <button
             type="button"
             onClick={loadExample}
-            disabled={isCalculating}
+            disabled={isBusy}
             className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Загрузить пример из ТЗ
@@ -120,7 +123,7 @@ export default function MeasurePicker({
           <button
             type="button"
             onClick={() => onChange([])}
-            disabled={isCalculating}
+            disabled={isBusy}
             className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Сбросить
@@ -150,7 +153,7 @@ export default function MeasurePicker({
         </div>
 
         {Object.entries(directions).map(([direction, name]) => (
-          <fieldset key={direction} disabled={isCalculating} className="min-w-0">
+          <fieldset key={direction} disabled={isBusy} className="min-w-0">
             <legend className="mb-3 text-base font-semibold text-slate-800">{name}</legend>
             <div className="grid gap-3 xl:grid-cols-2">
               {measures.filter((measure) => measure.direction === direction).map((measure) => {
@@ -171,7 +174,7 @@ export default function MeasurePicker({
                           <span className="mr-2 text-indigo-600">{measure.id}</span>{" "}{measure.name}
                         </label>
                         <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
-                          <span>Стоимость: <strong className="font-semibold text-slate-800">{measure.cost}</strong></span>
+                          <span>Стоимость: <strong className="font-semibold text-slate-800">{formatNumber(measure.cost)}</strong></span>
                           <span>Лаг: {measure.lag} кв.</span>
                           <span>Тип: {measure.scope === "district" ? "район" : "город"}</span>
                         </p>
@@ -185,7 +188,7 @@ export default function MeasurePicker({
                                 title={indicator.name}
                                 className={`rounded-md px-2 py-1 font-medium ${effect < 0 ? "bg-rose-100 text-rose-700" : "bg-emerald-50 text-emerald-800"}`}
                               >
-                                {indicator.code} {effect > 0 ? "+" : ""}{effect}
+                                {indicator.code} {formatDelta(effect)}
                               </span>
                             );
                           })}
