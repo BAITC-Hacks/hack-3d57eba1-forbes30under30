@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
 import type { ChatCompletionMessageParam, ChatCompletionToolChoiceOption } from "openai/resources/chat/completions";
 import { ZodError } from "zod";
-import { createOpenAIClient, OPENAI_MODEL } from "../openai";
+import { createOpenAIClient, getActiveModel, OPENAI_MODEL } from "../openai";
 import type { Decision } from "../engine/data";
 import { getEvent, type ScoreOptions } from "../engine/events";
 import { validate } from "../engine/validate";
@@ -76,6 +76,9 @@ export async function runAgent(decisions: readonly Decision[], options: ScoreOpt
         max_completion_tokens: 2600,
       }, { signal: controller.signal, timeout: Math.max(1, deadline - Date.now()) });
       if (controller.signal.aborted) throw new AgentError("Истекло время AI-анализа.");
+      if (getActiveModel() !== OPENAI_MODEL && !steps.some((step) => step.name === "model")) {
+        steps.push({ name: "model", detail: `Использована запасная модель ${getActiveModel()}, заданная ${OPENAI_MODEL} недоступна` });
+      }
       const message = completion.choices[0]?.message;
       if (!message || message.refusal) throw new AgentError("OpenAI не смог подготовить отчёт по этому сценарию.");
       messages.push(message);

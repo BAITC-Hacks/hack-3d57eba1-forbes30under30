@@ -138,31 +138,40 @@ async function main(): Promise<void> {
   near("Лучший Score подтверждён основным движком", best[0].score, score(best[0].decisions).score);
   console.log(`bestOverall: ${elapsed.toFixed(1)} мс (${cached ? "кэш" : "полный перебор"}); Score = ${best[0].score.toFixed(2)}, стоимость = ${best[0].cost}; ${best[0].decisions.map((item) => `${item.measureId}${item.districtId ? `@${item.districtId}` : ""}`).join(", ")}`);
 
+  let aiSkipped = false;
   if (process.env.OPENAI_API_KEY?.trim()) {
-    const [{ runAgent }, { reportSchema }] = await Promise.all([
+    const [{ runAgent }, { reportSchema }, { getActiveModel, wasLastAIRequestUnavailable }] = await Promise.all([
       import("../lib/agent"),
       import("../lib/agent/schemas"),
+      import("../lib/openai"),
     ]);
     console.log("AI-смоук: агент анализирует пример из ТЗ…");
     const result = await runAgent(example);
     if (result.report === null) {
-      throw new Error(`AI-отчёт: ожидался валидный отчёт, получено: ${result.aiError ?? "отчёт отсутствует"}`);
+      if (!wasLastAIRequestUnavailable() && !/не завершился за 60 секунд/.test(result.aiError ?? "")) {
+        throw new Error(`AI-отчёт: ожидался валидный отчёт, получено: ${result.aiError ?? "отчёт отсутствует"}`);
+      }
+      aiSkipped = true;
+      console.log(`AI-проверка пропущена: ${result.aiError ?? "OpenAI недоступен"}`);
+    } else {
+      equal("AI-отчёт соответствует схеме", reportSchema.safeParse(result.report).success, true);
+      const scoreStep = result.steps.findIndex((step) => step.name === "score_set");
+      const contributionsStep = result.steps.findIndex((step) => step.name === "get_contributions");
+      const suggestionsStep = result.steps.findIndex((step) => step.name === "suggest_swaps");
+      equal("AI вызвал score_set", scoreStep >= 0, true);
+      equal("AI вызвал get_contributions после score_set", contributionsStep > scoreStep, true);
+      equal("AI вызвал suggest_swaps после get_contributions", suggestionsStep > contributionsStep, true);
+      console.log(`AI-отчёт для примера из ТЗ:\n${JSON.stringify(result.report, null, 2)}`);
+      console.log(`AI-инструменты: ${result.steps.map((step) => step.name).join(" → ")}`);
+      console.log(`AI-модель: ${getActiveModel()}`);
     }
-    equal("AI-отчёт соответствует схеме", reportSchema.safeParse(result.report).success, true);
-    const scoreStep = result.steps.findIndex((step) => step.name === "score_set");
-    const contributionsStep = result.steps.findIndex((step) => step.name === "get_contributions");
-    const suggestionsStep = result.steps.findIndex((step) => step.name === "suggest_swaps");
-    equal("AI вызвал score_set", scoreStep >= 0, true);
-    equal("AI вызвал get_contributions после score_set", contributionsStep > scoreStep, true);
-    equal("AI вызвал suggest_swaps после get_contributions", suggestionsStep > contributionsStep, true);
-    console.log(`AI-отчёт для примера из ТЗ:\n${JSON.stringify(result.report, null, 2)}`);
-    console.log(`AI-инструменты: ${result.steps.map((step) => step.name).join(" → ")}`);
   } else {
-    console.log("AI-смоук пропущен: OPENAI_API_KEY не задан.");
+    aiSkipped = true;
+    console.log("AI-проверка пропущена: OPENAI_API_KEY не задан.");
   }
   console.log(`Смоук-тест пройден: ${checks} проверок.`);
   console.table(summary);
-  console.log("ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ");
+  console.log(aiSkipped ? "ЧИСЛОВЫЕ ПРОВЕРКИ ПРОЙДЕНЫ (AI-проверка пропущена)" : "ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ");
 }
 
 main().catch((error: unknown) => {
