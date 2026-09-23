@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import type { Decision } from "../lib/engine/data";
 
 let checks = 0;
@@ -19,6 +20,11 @@ function near(label: string, actual: number, expected: number): void {
 }
 
 async function main(): Promise<void> {
+  try {
+    if (existsSync(".env")) process.loadEnvFile(".env");
+  } catch {
+    throw new Error("Не удалось загрузить .env для смоук-теста. Проверьте файл и используйте Node.js 20.12 или новее.");
+  }
   // Keep imports inside the error boundary so missing/invalid data fail cleanly.
   const [{ districtsData, measuresData, measures }, { validate }, { score }, fixtures] =
     await Promise.all([
@@ -103,7 +109,27 @@ async function main(): Promise<void> {
   near("Фиксированная синергия M10+M12", exampleResult.districts.find((item) => item.id === "nura")?.after.B1 ?? NaN, 67.5);
   equal("Исходные датасеты не изменились", JSON.stringify({ districtsData, measuresData }), dataBefore);
   equal("Входные решения не изменились", JSON.stringify(scenarios), scenariosBefore);
-  console.log(`Смоук-тест пройден: ${checks} проверок. OpenAI не вызывается.`);
+  if (process.env.OPENAI_API_KEY?.trim()) {
+    const [{ runAgent }, { reportSchema }] = await Promise.all([
+      import("../lib/agent"),
+      import("../lib/agent/schemas"),
+    ]);
+    console.log("AI-смоук: агент анализирует пример из ТЗ…");
+    const result = await runAgent(example);
+    if (result.report === null) {
+      throw new Error(`AI-отчёт: ожидался валидный отчёт, получено: ${result.aiError ?? "отчёт отсутствует"}`);
+    }
+    equal("AI-отчёт соответствует схеме", reportSchema.safeParse(result.report).success, true);
+    const scoreStep = result.steps.findIndex((step) => step.name === "score_set");
+    const contributionsStep = result.steps.findIndex((step) => step.name === "get_contributions");
+    equal("AI вызвал score_set", scoreStep >= 0, true);
+    equal("AI вызвал get_contributions после score_set", contributionsStep > scoreStep, true);
+    console.log(`AI-отчёт для примера из ТЗ:\n${JSON.stringify(result.report, null, 2)}`);
+    console.log(`AI-инструменты: ${result.steps.map((step) => step.name).join(" → ")}`);
+  } else {
+    console.log("AI-смоук пропущен: OPENAI_API_KEY не задан.");
+  }
+  console.log(`Смоук-тест пройден: ${checks} проверок.`);
 }
 
 main().catch((error: unknown) => {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { Decision } from "@/lib/engine/data";
 import { validate } from "@/lib/engine/validate";
 import { score } from "@/lib/engine/score";
+import { runAgent } from "@/lib/agent";
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -24,7 +25,19 @@ export async function POST(request: Request) {
     }
 
     // validate checks the shape, identifiers, scopes and all set constraints.
-    return NextResponse.json({ calc: score(decisions as Decision[]) });
+    const validDecisions = decisions as Decision[];
+    const calc = score(validDecisions);
+    try {
+      const analysis = await runAgent(validDecisions);
+      return NextResponse.json({ calc, ...analysis });
+    } catch {
+      return NextResponse.json({
+        calc,
+        report: null,
+        steps: [],
+        aiError: "Не удалось получить разбор агента. Результат расчёта сохранён. Попробуйте повторить анализ.",
+      });
+    }
   } catch {
     return NextResponse.json(
       { error: "Не удалось рассчитать результат. Попробуйте ещё раз." },

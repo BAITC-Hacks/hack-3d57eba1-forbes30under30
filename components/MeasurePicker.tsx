@@ -107,7 +107,7 @@ export default function MeasurePicker({
             disabled={!validation.ok || isCalculating}
             className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
           >
-            {isCalculating ? "Рассчитываем…" : "Рассчитать"}
+            {isCalculating ? "Агент анализирует…" : "Рассчитать"}
           </button>
           <button
             type="button"
