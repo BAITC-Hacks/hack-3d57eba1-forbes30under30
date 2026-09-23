@@ -19,6 +19,7 @@ dist/
 build/
 .next/
 .cache/
+*.tsbuildinfo
 
 # user data / logs
 data/uploads/
