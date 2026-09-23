@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import type { Decision } from "@/lib/engine/data";
+import { measures, type Decision } from "@/lib/engine/data";
 import { validate } from "@/lib/engine/validate";
 import { score } from "@/lib/engine/score";
 import { bestOverall, suggestSwaps } from "@/lib/engine/optimize";
-import { waitForBestScore } from "@/lib/best-known";
+import { describeSuggestion } from "@/lib/suggestions";
 import { runAgent } from "@/lib/agent";
 
 export async function POST(request: Request) {
@@ -29,17 +29,16 @@ export async function POST(request: Request) {
     // validate checks the shape, identifiers, scopes and all set constraints.
     const validDecisions = decisions as Decision[];
     const calc = score(validDecisions);
-    const suggestions = suggestSwaps(validDecisions);
-    const bestScore = waitForBestScore(bestOverall());
+    const cost = validDecisions.reduce((sum, decision) => sum + measures.find(({ id }) => id === decision.measureId)!.cost, 0);
+    const suggestions = suggestSwaps(validDecisions).map((item) => describeSuggestion(item, validDecisions));
+    const optimal = (await bestOverall())[0];
+    const calculation = { calc, cost, suggestions, bestKnownScore: optimal.score, optimalDecisions: optimal.decisions };
     try {
       const analysis = await runAgent(validDecisions);
-      const bestKnownScore = await bestScore;
-      return NextResponse.json({ calc, suggestions, bestKnownScore, ...analysis });
+      return NextResponse.json({ ...calculation, ...analysis });
     } catch {
       return NextResponse.json({
-        calc,
-        suggestions,
-        bestKnownScore: await bestScore,
+        ...calculation,
         report: null,
         steps: [],
         aiError: "Не удалось получить разбор агента. Результат расчёта сохранён. Попробуйте повторить анализ.",
