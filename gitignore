@@ -1,0 +1,32 @@
+# secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# node
+node_modules/
+dist/
+build/
+.next/
+.cache/
+
+# user data / logs
+data/uploads/
+*.log
+logs/
+
+# ide / os
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
