@@ -2,6 +2,7 @@ import { measures } from "../../engine/data";
 import type { ScoreOptions } from "../../engine/events";
 import { score } from "../../engine/score";
 import { validate } from "../../engine/validate";
+import { formatScoreDelta } from "../../format";
 import {
   decisionsInputSchema, displayNumbers, measureFacts, normalizeToolDecisions,
   type ToolResult,
@@ -31,6 +32,6 @@ export function execute(args: unknown, options: ScoreOptions = {}): ToolResult {
       contributions,
       note: "Вклад — разница Score с мерой и без неё. Вклады не аддитивны из-за синергий, минимума районов и критических порогов.",
     }),
-    summary: contributions.map((item) => `${item.measureId}: ${item.contribution.toFixed(2)}`).join("; "),
+    summary: contributions.map((item) => `${item.measureId}: ${formatScoreDelta(item.contribution)}`).join("; "),
   };
 }

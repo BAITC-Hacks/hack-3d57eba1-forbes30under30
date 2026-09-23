@@ -2,14 +2,15 @@
 
 import { useId, useState } from "react";
 import { indicators, rules } from "@/lib/engine/data";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, formatScore } from "@/lib/format";
 import type { DistrictScore } from "@/lib/engine/score";
 
 type Props = { districts: DistrictScore[]; affectedDistrictIds?: string[] };
-const format = formatNumber;
 const bar = (value: number) => Math.max(0, Math.min(100, value)) * 2.5;
 
-function Bars({ before, after, label }: { before: number; after: number; label: string }) {
+function Bars({ before, after, label, format = formatNumber }: {
+  before: number; after: number; label: string; format?: (value: number) => string;
+}) {
   return (
     <svg viewBox="0 0 340 53" className="block w-full" role="img" aria-label={`${label}: до ${format(before)}, после ${format(after)}. Красная линия — ориентир ${rules.criticalThreshold}.`}>
       <rect x="1" y="7" width="250" height="12" rx="4" fill="#f1f5f9" />
@@ -44,7 +45,7 @@ export default function DistrictChart({ districts, affectedDistrictIds = [] }: P
             <p className="mb-2 flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-800">{district.name} · D
               {affectedDistrictIds.includes(district.id) && <span className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-900">Событие</span>}
             </p>
-            <Bars before={district.D_before} after={district.D_after} label={`${district.name}, индекс D`} />
+            <Bars before={district.D_before} after={district.D_after} label={`${district.name}, индекс D`} format={formatScore} />
           </div>
         ))}
       </div>

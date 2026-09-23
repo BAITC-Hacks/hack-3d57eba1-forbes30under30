@@ -1,20 +1,22 @@
 import { indicators } from "@/lib/engine/data";
 import type { DistrictScore } from "@/lib/engine/score";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, formatScore } from "@/lib/format";
 
 type DistrictTableProps = { districts: DistrictScore[]; affectedDistrictIds?: string[] };
 
-function Change({ before, after }: { before: number; after: number }) {
+function Change({ before, after, format = formatNumber }: {
+  before: number; after: number; format?: (value: number) => string;
+}) {
   const color = after > before ? "text-emerald-700" : after < before ? "text-rose-700" : "text-slate-700";
   const description = after > before ? "рост" : after < before ? "снижение" : "без изменений";
   return (
     <span className="inline-flex items-center gap-1 whitespace-nowrap tabular-nums">
       <span className={`rounded px-1 py-0.5 ${before < 40 ? "bg-rose-100 font-medium text-rose-800" : "text-slate-500"}`}>
-        <span className="sr-only">До: </span>{formatNumber(before)}
+        <span className="sr-only">До: </span>{format(before)}
       </span>
       <span aria-hidden="true" className="text-slate-400">→</span>
       <span className={`rounded px-1 py-0.5 font-semibold ${color} ${after < 40 ? "bg-rose-100" : ""}`}>
-        <span className="sr-only">После: </span>{formatNumber(after)}
+        <span className="sr-only">После: </span>{format(after)}
       </span>
       <span className="sr-only">, {description}</span>
     </span>
@@ -75,7 +77,7 @@ export default function DistrictTable({ districts, affectedDistrictIds = [] }: D
                   </td>
                 ))}
                 <td className="sticky right-0 z-10 border-l border-slate-200 bg-indigo-50 px-2 py-5 text-center sm:px-4">
-                  <Change before={district.D_before} after={district.D_after} />
+                  <Change before={district.D_before} after={district.D_after} format={formatScore} />
                 </td>
               </tr>
             ))}

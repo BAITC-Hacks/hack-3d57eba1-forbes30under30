@@ -3,6 +3,7 @@ import { districts, indicators, rules } from "../../engine/data";
 import type { ScoreOptions } from "../../engine/events";
 import { score } from "../../engine/score";
 import { validate } from "../../engine/validate";
+import { formatScore } from "../../format";
 import {
   decisionsInputSchema, displayNumbers, normalizeToolDecisions, type ToolResult,
 } from "./shared";
@@ -47,6 +48,6 @@ export function execute(args: unknown, options: ScoreOptions = {}): ToolResult {
       criticals: calc.criticals.filter((item) => item.districtId === district.id),
       weakest: result.D_after === calc.minDistrict,
     }),
-    summary: `${district.name}: индекс ${result.D_before.toFixed(2)} → ${result.D_after.toFixed(2)}; критических показателей: ${calc.criticals.filter((item) => item.districtId === district.id).length}.`,
+    summary: `${district.name}: индекс ${formatScore(result.D_before)} → ${formatScore(result.D_after)}; критических показателей: ${calc.criticals.filter((item) => item.districtId === district.id).length}.`,
   };
 }

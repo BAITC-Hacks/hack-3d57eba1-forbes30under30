@@ -83,7 +83,7 @@ export default function MeasurePicker({
           aria-valuemin={0}
           aria-valuemax={rules.budget}
           aria-valuenow={Math.min(used, rules.budget)}
-          aria-valuetext={`Использовано ${used} из ${rules.budget}, остаток ${remaining}`}
+          aria-valuetext={`Использовано ${formatNumber(used)} из ${formatNumber(rules.budget)}, остаток ${formatNumber(remaining)}`}
           className="mt-4 h-2.5 overflow-hidden rounded-full bg-slate-100"
         >
           <div className={`h-full rounded-full transition-[width] ${overBudget ? "bg-rose-500" : "bg-indigo-600"}`} style={{ width: `${progress}%` }} />
@@ -175,7 +175,7 @@ export default function MeasurePicker({
                         </label>
                         <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
                           <span>Стоимость: <strong className="font-semibold text-slate-800">{formatNumber(measure.cost)}</strong></span>
-                          <span>Лаг: {measure.lag} кв.</span>
+                          <span>Лаг: {formatNumber(measure.lag)} кв.</span>
                           <span>Тип: {measure.scope === "district" ? "район" : "город"}</span>
                         </p>
                         <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">

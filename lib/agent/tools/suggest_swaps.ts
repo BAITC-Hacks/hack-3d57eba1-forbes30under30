@@ -2,6 +2,7 @@ import { districts, measures, type Decision } from "../../engine/data";
 import type { ScoreOptions } from "../../engine/events";
 import { suggestSwaps } from "../../engine/optimize";
 import { validate } from "../../engine/validate";
+import { formatScoreDelta } from "../../format";
 import {
   decisionsInputSchema, displayNumbers, normalizeToolDecisions,
   sameDecisions, type ToolResult,
@@ -46,6 +47,6 @@ export function execute(args: unknown, originalDecisions: readonly Decision[], o
     }),
     summary: suggestions.length === 0
       ? "Подтверждённых улучшений заменой одной меры не найдено."
-      : `Найдено улучшений: ${suggestions.length}; лучший прирост Score +${suggestions[0].delta.toFixed(2)}.`,
+      : `Найдено улучшений: ${suggestions.length}; лучший прирост Score ${formatScoreDelta(suggestions[0].delta)}.`,
   };
 }

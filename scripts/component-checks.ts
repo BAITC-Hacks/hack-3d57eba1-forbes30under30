@@ -6,7 +6,7 @@ import DistrictTable from "../components/DistrictTable";
 import ScoreCard from "../components/ScoreCard";
 import { referenceValues } from "../lib/engine/data";
 import { score } from "../lib/engine/score";
-import { formatDelta, formatNumber } from "../lib/format";
+import { formatDelta, formatNumber, formatScore, formatScoreDelta } from "../lib/format";
 import type { AgentReport as Report } from "../lib/agent/schemas";
 import type { Suggestion } from "../lib/result-schema";
 
@@ -102,11 +102,15 @@ function main(): void {
   }));
   const calc = score(bestDecisions);
 
-  check("ScoreCard показывает бейдж оптимума и две цифры у стоимости", () => {
+  check("ScoreCard показывает компактную стоимость и индексы с двумя знаками", () => {
     const props = { calc, cost: 98, bestKnownScore: calc.score, onShowOptimal: noop, disabled: false };
     const html = renderToStaticMarkup(React.createElement(ScoreCard, props));
     assert.ok(html.includes("Оптимальный набор"));
-    assert.ok(html.includes("98,00"));
+    assert.match(html, />98 <span[^>]*>из 100<\/span>/);
+    assert.ok(html.includes("57,24"));
+    assert.ok(html.includes("+4,68"));
+    assert.ok(html.includes("52,56"));
+    assert.ok(html.includes(formatScore(calc.dAvg)));
     const almost = renderToStaticMarkup(React.createElement(ScoreCard, { ...props, bestKnownScore: calc.score + 0.001 }));
     assert.ok(!almost.includes("Оптимальный набор"));
     const invalid = renderToStaticMarkup(React.createElement(ScoreCard, {
@@ -117,21 +121,35 @@ function main(): void {
   });
 
   check("таблица сохраняет закреплённые крайние колонки и формат показателей", () => {
-    const html = renderToStaticMarkup(React.createElement(DistrictTable, { districts: calc.districts }));
+    const example = score(referenceValues.exampleSet.decisions.map(([measureId, districtId]) => ({
+      measureId, ...(districtId ? { districtId } : {}),
+    })));
+    const html = renderToStaticMarkup(React.createElement(DistrictTable, { districts: example.districts }));
     assert.ok(html.includes("Индекс района D"));
     assert.ok(html.includes("sticky left-0"));
     assert.ok(html.includes("sticky right-0"));
-    assert.ok(html.includes("45,00"));
+    assert.ok(html.includes("До: </span>45</span>"));
+    assert.ok(html.includes("После: </span>67,5</span>"));
+    assert.ok(html.includes("После: </span>57,50</span>"));
   });
 
-  check("числа форматируются двумя знаками, дельты всегда со знаком", () => {
-    assert.equal(formatNumber(40), "40,00");
+  check("обычные числа компактные, индексы с двумя знаками, дельты со знаком", () => {
+    assert.equal(formatNumber(40), "40");
+    assert.equal(formatNumber(67.5), "67,5");
+    assert.equal(formatNumber(48.75), "48,75");
     assert.equal(formatNumber(57.239), "57,24");
-    assert.equal(formatDelta(0), "+0,00");
-    assert.equal(formatDelta(1.2), "+1,20");
-    assert.equal(formatDelta(-1.2), "-1,20");
-    assert.equal(formatNumber(NaN), "—");
-    assert.equal(formatDelta(Infinity), "—");
+    assert.equal(formatDelta(0), "+0");
+    assert.equal(formatDelta(12), "+12");
+    assert.equal(formatDelta(1.2), "+1,2");
+    assert.equal(formatDelta(-1.2), "−1,2");
+    assert.equal(formatScore(57.5), "57,50");
+    assert.equal(formatScore(40), "40,00");
+    assert.equal(formatScoreDelta(0), "+0,00");
+    assert.equal(formatScoreDelta(3.98539), "+3,99");
+    assert.equal(formatScoreDelta(-1.15), "−1,15");
+    for (const format of [formatNumber, formatDelta, formatScore, formatScoreDelta]) {
+      for (const value of [NaN, Infinity, -Infinity]) assert.equal(format(value), "—");
+    }
   });
 
   console.log(`Проверки компонентов пройдены: ${passed}.`);

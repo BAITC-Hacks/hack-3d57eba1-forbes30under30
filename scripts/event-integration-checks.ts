@@ -76,7 +76,7 @@ async function main() {
       calc: result.calc, cost: result.cost, report, activeEvent: result.activeEvent,
     });
     assert.ok(markdown.startsWith("# Команда \\| &lt;Астана&gt; \\# Заголовок\n"));
-    for (const expected of ["55,34", "51,36", "95 из 100", "Авария на теплосетях в Алматы", "C1 -12,00", "D до мер", "D после мер", "Критические значения", "Ожидаемая дельта Score", "&lt;script&gt;"]) {
+    for (const expected of ["55,34", "51,36", "95 из 100", "Авария на теплосетях в Алматы", "C1 −12", "D до мер", "D после мер", "Критические значения", "Ожидаемая дельта Score", "&lt;script&gt;"]) {
       assert.ok(markdown.includes(expected), `Отчёт не содержит ${expected}`);
     }
     for (const decision of decisions) assert.ok(markdown.includes(`| ${decision.measureId} `));

@@ -5,6 +5,7 @@ import {
 import { score } from "../../engine/score";
 import type { ScoreOptions } from "../../engine/events";
 import { validate } from "../../engine/validate";
+import { formatNumber, formatScore, formatScoreDelta } from "../../format";
 import {
   decisionsInputSchema, displayNumbers, measureFacts, normalizeToolDecisions,
   sameDecisions, type ToolResult,
@@ -85,6 +86,6 @@ export function execute(args: unknown, originalDecisions: readonly Decision[], o
       indicators,
       ...(comparison === undefined ? {} : { comparison }),
     }),
-    summary: `Score ${calc.score.toFixed(2)}, дельта к базе ${calc.delta.toFixed(2)}, стоимость ${cost}; критических значений: ${calc.criticals.length}.`,
+    summary: `Score ${formatScore(calc.score)}, дельта к базе ${formatScoreDelta(calc.delta)}, стоимость ${formatNumber(cost)}; критических значений: ${calc.criticals.length}.`,
   };
 }

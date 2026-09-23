@@ -1,5 +1,5 @@
 import type { ScoreResult } from "@/lib/engine/score";
-import { formatDelta, formatNumber } from "@/lib/format";
+import { formatNumber, formatScore, formatScoreDelta } from "@/lib/format";
 
 type ScoreCardProps = {
   calc: ScoreResult;
@@ -31,10 +31,10 @@ export default function ScoreCard({
       </div>
       <div className="mt-4 flex flex-wrap items-end gap-x-4 gap-y-3">
         <p className="text-6xl font-semibold tracking-tight text-slate-950 tabular-nums sm:text-7xl">
-          {formatNumber(calc.score)}
+          {formatScore(calc.score)}
         </p>
         <p className={`mb-1 rounded-lg px-3 py-1.5 text-sm font-semibold tabular-nums ${deltaColor}`}>
-          {formatDelta(calc.delta)} к базе {formatNumber(calc.baseScore)}
+          {formatScoreDelta(calc.delta)} к базе {formatScore(calc.baseScore)}
         </p>
       </div>
 
@@ -45,12 +45,12 @@ export default function ScoreCard({
         </div>
         <div>
           <dt className="text-sm text-slate-500">Средний индекс · D_avg</dt>
-          <dd className="mt-1 text-xl font-semibold text-slate-900 tabular-nums">{formatNumber(calc.dAvg)}</dd>
+          <dd className="mt-1 text-xl font-semibold text-slate-900 tabular-nums">{formatScore(calc.dAvg)}</dd>
         </div>
         <div>
           <dt className="text-sm text-slate-500">Самый слабый район</dt>
           <dd className="mt-1 font-semibold text-slate-900">
-            {weakest ? <>{weakest.name} <span className="whitespace-nowrap tabular-nums">· {formatNumber(weakest.D_after)}</span></> : "—"}
+            {weakest ? <>{weakest.name} <span className="whitespace-nowrap tabular-nums">· {formatScore(weakest.D_after)}</span></> : "—"}
           </dd>
         </div>
         <div>
@@ -63,7 +63,7 @@ export default function ScoreCard({
 
       <div className="mt-6 rounded-xl bg-indigo-50 p-4">
         <p className="text-sm font-semibold text-indigo-950">
-          Лучший возможный: <span className="tabular-nums">{formatNumber(bestKnownScore)}</span>
+          Лучший возможный: <span className="tabular-nums">{formatScore(bestKnownScore)}</span>
         </p>
         <button
           type="button"

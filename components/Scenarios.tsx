@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { z } from "zod";
 import type { Decision } from "@/lib/engine/data";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, formatScore } from "@/lib/format";
 import { events } from "@/lib/engine/events";
 import { savedScenarioSchema, type SavedScenario } from "@/lib/scenarios/schema";
 
@@ -189,7 +189,7 @@ export default function Scenarios({ decisions, eventId, name, onNameChange, isCa
                     {scenario.name}
                     {scenario.eventId && <span className="mt-1 block text-xs font-normal text-amber-800">{events.find((event) => event.id === scenario.eventId)?.title}</span>}
                   </th>
-                  <td className="py-4 pr-4 text-right font-semibold tabular-nums text-indigo-700">{formatNumber(scenario.score)}</td>
+                  <td className="py-4 pr-4 text-right font-semibold tabular-nums text-indigo-700">{formatScore(scenario.score)}</td>
                   <td className="py-4 pr-4 text-right tabular-nums text-slate-600">{formatNumber(scenario.cost)} <span className="text-xs text-slate-400">/ {formatNumber(100)}</span></td>
                   <td className="py-4 text-right">
                     <button

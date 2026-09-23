@@ -1,5 +1,6 @@
 import { measures, rules } from "../../engine/data";
 import { validate } from "../../engine/validate";
+import { formatNumber } from "../../format";
 import {
   decisionsInputSchema, normalizeToolDecisions, type ToolResult,
 } from "./shared";
@@ -17,7 +18,7 @@ export function execute(args: unknown): ToolResult {
   return {
     output: { ...result, decisions, cost, budget: rules.budget },
     summary: result.ok
-      ? `Набор допустим; стоимость ${cost} из ${rules.budget}.`
+      ? `Набор допустим; стоимость ${formatNumber(cost)} из ${formatNumber(rules.budget)}.`
       : `Набор недопустим: ${result.errors.join(" ")}`,
   };
 }

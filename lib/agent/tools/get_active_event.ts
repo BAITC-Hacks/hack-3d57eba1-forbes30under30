@@ -2,6 +2,7 @@ import { z } from "zod";
 import { districts, indicators, measures, rules, type Decision } from "../../engine/data";
 import { getEvent, type ScoreOptions } from "../../engine/events";
 import { score } from "../../engine/score";
+import { formatScore } from "../../format";
 import { displayNumbers, measureFacts, type ToolResult } from "./shared";
 
 export const inputSchema = z.object({}).strict();
@@ -63,6 +64,6 @@ export function execute(args: unknown, decisions: readonly Decision[], options: 
       affectedDistricts,
       note: "Событие применяется к исходным показателям с clip до эффектов мер. directMeasureResponses показывает прямые эффекты выбранных мер до финального clip; итоговые значения и синергии указаны отдельно. Пустой список означает, что выбранные меры напрямую не воздействуют на затронутые показатели этого района. Замены проверены отдельно в suggest_swaps с тем же событием.",
     }),
-    summary: `${event.title}: Score набора ${beforeEvent.score.toFixed(2)} → ${afterEvent.score.toFixed(2)}; пострадавшие районы: ${affectedDistricts.map(({ name }) => name).join(", ")}.`,
+    summary: `${event.title}: Score набора ${formatScore(beforeEvent.score)} → ${formatScore(afterEvent.score)}; пострадавшие районы: ${affectedDistricts.map(({ name }) => name).join(", ")}.`,
   };
 }

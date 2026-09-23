@@ -1,6 +1,6 @@
 import { districts, measures } from "@/lib/engine/data";
 import type { Contribution } from "@/lib/engine/score";
-import { formatDelta } from "@/lib/format";
+import { formatScoreDelta } from "@/lib/format";
 
 type ContributionsProps = { contributions: Contribution[] };
 
@@ -29,7 +29,7 @@ export default function Contributions({ contributions }: ContributionsProps) {
                   <span className="text-slate-500"> / {district?.name ?? "Весь город"}</span>
                 </span>
                 <span className={`shrink-0 font-semibold tabular-nums ${contribution > 0 ? "text-emerald-700" : contribution < 0 ? "text-rose-700" : "text-slate-500"}`}>
-                  {formatDelta(contribution)}
+                  {formatScoreDelta(contribution)}
                 </span>
               </div>
               <div aria-hidden="true" className="relative mt-2 h-3 rounded-full bg-slate-100">

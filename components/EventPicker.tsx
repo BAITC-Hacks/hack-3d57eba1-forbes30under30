@@ -1,7 +1,7 @@
 "use client";
 
 import { districts, indicators } from "@/lib/engine/data";
-import { formatNumber, formatDelta } from "@/lib/format";
+import { formatScore, formatDelta } from "@/lib/format";
 import { events } from "@/lib/engine/events";
 
 type Props = {
@@ -11,7 +11,6 @@ type Props = {
   beforeScore?: number;
   afterScore?: number;
 };
-const format = formatNumber;
 
 export default function EventPicker({ eventId, onChange, disabled, beforeScore, afterScore }: Props) {
   const event = events.find((item) => item.id === eventId);
@@ -53,7 +52,7 @@ export default function EventPicker({ eventId, onChange, disabled, beforeScore, 
             )))}
           </ul>
           {beforeScore !== undefined && afterScore !== undefined ? (
-            <p className="mt-4 text-sm font-medium text-slate-800">Score вашего набора до события → после: <strong className="tabular-nums">{format(beforeScore)} → {format(afterScore)}</strong></p>
+            <p className="mt-4 text-sm font-medium text-slate-800">Score вашего набора до события → после: <strong className="tabular-nums">{formatScore(beforeScore)} → {formatScore(afterScore)}</strong></p>
           ) : <p className="mt-4 text-sm text-slate-500">{disabled ? "Пересчитываем результат с учётом события…" : "Выберите 5 допустимых решений, чтобы увидеть влияние события на ваш набор."}</p>}
           <p className="mt-3 font-semibold text-amber-900">Перераспределите бюджет</p>
           <p className="mt-1 text-sm leading-6 text-slate-600">Сравните рекомендации агента и направьте меры в пострадавший район.</p>

@@ -2,7 +2,7 @@
 
 import type { AgentReport as Report, AgentStep } from "@/lib/agent/schemas";
 import type { Suggestion } from "@/lib/result-schema";
-import { formatDelta, formatNumber } from "@/lib/format";
+import { formatScoreDelta, formatScore } from "@/lib/format";
 
 type AgentReportProps = {
   report: Report | null;
@@ -107,7 +107,7 @@ export default function AgentReport({
                 </p>
               ) : hasNoImprovingSwap ? (
                 <p className="mt-3 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm leading-6 text-indigo-950">
-                  Заменой одной меры набор не улучшить. Лучший возможный результат — {formatNumber(bestKnownScore)}, нажмите «Показать оптимальный набор»
+                  Заменой одной меры набор не улучшить. Лучший возможный результат — {formatScore(bestKnownScore)}, нажмите «Показать оптимальный набор»
                 </p>
               ) : (
                 <ul className="mt-3 space-y-3">
@@ -119,7 +119,7 @@ export default function AgentReport({
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <p className="max-w-3xl font-semibold text-slate-900">{recommendation.change}</p>
                           <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold tabular-nums ${recommendation.expectedDelta > 0 ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-700"}`}>
-                            Score {formatDelta(recommendation.expectedDelta)}
+                            Score {formatScoreDelta(recommendation.expectedDelta)}
                           </span>
                         </div>
                         <p className="mt-2">{recommendation.why}</p>
