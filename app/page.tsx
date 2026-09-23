@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import AgentReport from "@/components/AgentReport";
+import AgentReport, { CalculatedRecommendations } from "@/components/AgentReport";
 import Contributions from "@/components/Contributions";
 import DistrictOverview from "@/components/DistrictOverview";
 import DistrictTable from "@/components/DistrictTable";
@@ -241,8 +241,10 @@ export default function HomePage() {
             )}
             {result && <DistrictChart districts={result.calc.districts} affectedDistrictIds={Object.keys(result.activeEvent?.effects ?? {})} />}
             {result && <AgentReport report={result.report} steps={result.steps}
-              suggestions={result.suggestions} aiError={result.aiError} score={result.calc.score} bestKnownScore={result.bestKnownScore}
+              suggestions={result.suggestions} aiError={result.aiError}
               isAnalyzing={isAnalyzing} onRetry={() => void retryAnalysis()} onApply={apply} />}
+            {result && <CalculatedRecommendations suggestions={result.suggestions}
+              score={result.calc.score} bestKnownScore={result.bestKnownScore} disabled={isBusy} onApply={apply} />}
             {result && <div className="mt-6"><DistrictTable districts={result.calc.districts}
               affectedDistrictIds={Object.keys(result.activeEvent?.effects ?? {})} /></div>}
           </section>

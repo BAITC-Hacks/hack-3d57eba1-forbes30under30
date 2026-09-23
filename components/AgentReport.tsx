@@ -2,7 +2,7 @@
 
 import type { AgentReport as Report, AgentStep } from "@/lib/agent/schemas";
 import type { Suggestion } from "@/lib/result-schema";
-import { formatScoreDelta, formatScore } from "@/lib/format";
+import { formatNumber, formatScoreDelta, formatScore } from "@/lib/format";
 
 type AgentReportProps = {
   report: Report | null;
@@ -26,6 +26,76 @@ function shortDetail(detail: string): string {
   }
   summary = summary.replace(/\s+/g, " ").trim();
   return summary.length > 300 ? `${summary.slice(0, 297)}…` : summary;
+}
+
+type CalculatedRecommendationsProps = {
+  suggestions: Suggestion[];
+  score: number;
+  bestKnownScore: number;
+  disabled: boolean;
+  onApply: (suggestion: Suggestion) => void;
+};
+
+export function CalculatedRecommendations({
+  suggestions, score, bestKnownScore, disabled, onApply,
+}: CalculatedRecommendationsProps) {
+  const canCompare = Number.isFinite(score) && Number.isFinite(bestKnownScore);
+  const isOptimal = canCompare && Math.abs(score - bestKnownScore) <= 1e-9;
+  const hasNoImprovingSwap = canCompare && score < bestKnownScore - 1e-9;
+
+  return (
+    <section aria-labelledby="calculated-recommendations-title" className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 sm:p-8">
+      <h2 id="calculated-recommendations-title" className="text-xl font-semibold text-slate-900">Рекомендации по расчёту</h2>
+      {suggestions.length > 0 ? (
+        <>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            Замены проверены движком и доступны без AI. Каждая рассчитана отдельно относительно текущего набора.
+          </p>
+          {disabled && <p role="status" className="mt-2 text-sm text-indigo-700">Применить замену можно после завершения текущего анализа.</p>}
+          <ul className="mt-5 space-y-3">
+            {suggestions.slice(0, 5).map((suggestion) => (
+              <li key={`${suggestion.replace}-${suggestion.with}-${suggestion.districtId ?? "city"}`} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+                <p className="font-semibold leading-7 text-slate-900">{suggestion.change}</p>
+                <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-3 text-sm">
+                  <div>
+                    <dt className="text-slate-500">Новый Score</dt>
+                    <dd className="mt-1 font-semibold tabular-nums text-indigo-700">{formatScore(suggestion.newScore)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500">Дельта Score</dt>
+                    <dd className="mt-1 font-semibold tabular-nums text-emerald-700">{formatScoreDelta(suggestion.delta)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500">Стоимость набора</dt>
+                    <dd className="mt-1 font-semibold tabular-nums text-slate-800">{formatNumber(suggestion.cost)} из 100</dd>
+                  </div>
+                </dl>
+                <button
+                  type="button"
+                  onClick={() => onApply(suggestion)}
+                  disabled={disabled}
+                  aria-label={`Применить по расчёту: ${suggestion.change}`}
+                  className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Применить
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : isOptimal ? (
+        <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium leading-6 text-emerald-900">
+          Это лучший возможный набор из 694 395 допустимых вариантов
+        </p>
+      ) : hasNoImprovingSwap ? (
+        <p className="mt-3 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm leading-6 text-indigo-950">
+          Заменой одной меры набор не улучшить. Лучший возможный результат — {formatScore(bestKnownScore)}, нажмите «Показать оптимальный набор»
+        </p>
+      ) : (
+        <p className="mt-3 text-sm text-slate-500">Улучшений заменой одной меры не найдено.</p>
+      )}
+    </section>
+  );
 }
 
 export default function AgentReport({
