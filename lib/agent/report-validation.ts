@@ -10,6 +10,11 @@ const swapFactsSchema = z.object({
   tool: z.literal("suggest_swaps"),
   suggestions: z.array(z.object({ change: z.string(), delta: z.number().finite() })),
 });
+const eventFactsSchema = z.object({
+  ok: z.literal(true),
+  tool: z.literal("get_active_event"),
+  event: z.object({ title: z.string() }),
+});
 
 // A numeric claim must occur in a tool result; this catches invented arithmetic
 // in prose as well as unsupported forecasts in structured recommendations.
@@ -51,6 +56,11 @@ export function validateReport(content: string, outputs: readonly unknown[]): Ag
   }
   const texts = [report.summary, ...report.strengths, ...report.risks, ...report.tradeoffs,
     ...report.recommendations.flatMap((item) => [item.change, item.why])];
+  const activeEvent = outputs.map((output) => eventFactsSchema.safeParse(output))
+    .find((result) => result.success);
+  if (activeEvent?.success && !texts.join(" ").includes(activeEvent.data.event.title)) {
+    throw new Error(`Объясни активное событие «${activeEvent.data.event.title}» и реакцию выбранного набора на его последствия.`);
+  }
   for (const text of texts) {
     // Ignore IDs such as M10, T1 and C2; recognise decimal commas and minus signs.
     const tokens = text.matchAll(/(?<![\p{L}\p{N}_])[-+−]?\d+(?:[.,]\d+)?/gu);

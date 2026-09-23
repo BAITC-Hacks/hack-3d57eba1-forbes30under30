@@ -3,6 +3,7 @@ import type { Decision } from "@/lib/engine/data";
 import { validate } from "@/lib/engine/validate";
 import { scenarioNameSchema } from "@/lib/scenarios/schema";
 import { listScenarios, saveScenario } from "@/lib/scenarios/store";
+import { getEvent } from "@/lib/engine/events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,6 +39,14 @@ export async function POST(request: Request) {
     );
   }
   const input = body as Record<string, unknown>;
+  if (input.eventId !== undefined && typeof input.eventId !== "string") {
+    return NextResponse.json({ error: "Передайте корректный идентификатор события." }, { status: 400 });
+  }
+  try {
+    getEvent(input.eventId);
+  } catch {
+    return NextResponse.json({ error: "Неизвестное событие. Сценарий не сохранён." }, { status: 400 });
+  }
   const name = scenarioNameSchema.safeParse(input.name);
   if (!name.success) {
     return NextResponse.json(
@@ -57,6 +66,7 @@ export async function POST(request: Request) {
     // Values and time come from the server, never from the submitted score.
     const scenario = await saveScenario({
       name: name.data,
+      eventId: input.eventId,
       decisions: (input.decisions as Decision[]).map(({ measureId, districtId }) => ({
         measureId,
         ...(districtId === undefined ? {} : { districtId }),

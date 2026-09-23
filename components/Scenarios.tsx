@@ -3,10 +3,14 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { z } from "zod";
 import type { Decision } from "@/lib/engine/data";
+import { events } from "@/lib/engine/events";
 import { savedScenarioSchema, type SavedScenario } from "@/lib/scenarios/schema";
 
 type ScenariosProps = {
   decisions: Decision[] | null;
+  eventId?: string;
+  name: string;
+  onNameChange: (name: string) => void;
   isCalculating: boolean;
   onLoad: (scenario: SavedScenario) => void;
 };
@@ -23,8 +27,7 @@ function serverMessage(body: unknown, fallback: string): string {
   return parsed.success ? parsed.data.error || parsed.data.errors?.join(" ") || fallback : fallback;
 }
 
-export default function Scenarios({ decisions, isCalculating, onLoad }: ScenariosProps) {
-  const [name, setName] = useState("");
+export default function Scenarios({ decisions, eventId, name, onNameChange, isCalculating, onLoad }: ScenariosProps) {
   const [scenarios, setScenarios] = useState<SavedScenario[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -75,7 +78,7 @@ export default function Scenarios({ decisions, isCalculating, onLoad }: Scenario
   useEffect(() => {
     setSaveError(null);
     setSavedMessage(null);
-  }, [decisions]);
+  }, [decisions, eventId]);
 
   async function saveScenario(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -94,7 +97,7 @@ export default function Scenarios({ decisions, isCalculating, onLoad }: Scenario
       const response = await fetch("/api/scenarios", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), decisions }),
+        body: JSON.stringify({ name: name.trim(), decisions, eventId }),
         signal: controller.signal,
       });
       const body: unknown = await response.json();
@@ -103,7 +106,6 @@ export default function Scenarios({ decisions, isCalculating, onLoad }: Scenario
       if (!parsed.success) throw new Error("Сервер не подтвердил сохранение сценария. Обновите список перед повторной попыткой.");
       setScenarios((current) => [...current, parsed.data].sort((a, b) => b.score - a.score || a.createdAt.localeCompare(b.createdAt)));
       setSavedMessage(`Сценарий «${parsed.data.name}» сохранён.`);
-      setName("");
       void loadScenarios();
     } catch (error) {
       setSaveError(controller.signal.aborted
@@ -141,7 +143,7 @@ export default function Scenarios({ decisions, isCalculating, onLoad }: Scenario
             name="scenarioName"
             type="text"
             value={name}
-            onChange={(event) => { setName(event.target.value); setSaveError(null); setSavedMessage(null); }}
+            onChange={(event) => { onNameChange(event.target.value); setSaveError(null); setSavedMessage(null); }}
             maxLength={100}
             placeholder="Например, Зелёная Астана"
             disabled={isSaving}
@@ -187,7 +189,10 @@ export default function Scenarios({ decisions, isCalculating, onLoad }: Scenario
               {scenarios.map((scenario, index) => (
                 <tr key={`${scenario.createdAt}-${index}`}>
                   <td className="py-4 pr-4"><span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${index === 0 ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-500"}`}>{index + 1}</span></td>
-                  <th scope="row" className="max-w-xs break-words py-4 pr-4 font-medium text-slate-800">{scenario.name}</th>
+                  <th scope="row" className="max-w-xs break-words py-4 pr-4 font-medium text-slate-800">
+                    {scenario.name}
+                    {scenario.eventId && <span className="mt-1 block text-xs font-normal text-amber-800">{events.find((event) => event.id === scenario.eventId)?.title}</span>}
+                  </th>
                   <td className="py-4 pr-4 text-right font-semibold tabular-nums text-indigo-700">{formatScore(scenario.score)}</td>
                   <td className="py-4 pr-4 text-right tabular-nums text-slate-600">{scenario.cost} <span className="text-xs text-slate-400">/ 100</span></td>
                   <td className="py-4 text-right">

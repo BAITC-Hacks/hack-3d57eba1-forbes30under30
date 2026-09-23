@@ -5,6 +5,9 @@ import AgentReport from "@/components/AgentReport";
 import Contributions from "@/components/Contributions";
 import DistrictOverview from "@/components/DistrictOverview";
 import DistrictTable from "@/components/DistrictTable";
+import DistrictChart from "@/components/DistrictChart";
+import EventPicker from "@/components/EventPicker";
+import ReportDownload from "@/components/ReportDownload";
 import MeasurePicker from "@/components/MeasurePicker";
 import Scenarios from "@/components/Scenarios";
 import ScoreCard from "@/components/ScoreCard";
@@ -18,6 +21,8 @@ type Result = Analysis & { decisions: Decision[] };
 
 export default function HomePage() {
   const [decisions, setDecisions] = useState<Decision[]>([]);
+  const [eventId, setEventId] = useState<string>();
+  const [scenarioName, setScenarioName] = useState("");
   const [isCalculating, setIsCalculating] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +48,10 @@ export default function HomePage() {
     setError(null);
   }
 
-  async function calculate(nextDecisions: readonly Decision[] = decisions, keepResult = false) {
+  async function calculate(
+    nextDecisions: readonly Decision[] = decisions,
+    options: { keepResult?: boolean; eventId?: string } = { eventId },
+  ) {
     if (busyRef.current) return;
     const validation = validate(nextDecisions);
     if (!validation.ok) {
@@ -53,8 +61,9 @@ export default function HomePage() {
     const snapshot = nextDecisions.map((decision) => ({ ...decision }));
     busyRef.current = true;
     setDecisions(snapshot);
+    setEventId(options.eventId);
     setIsCalculating(true);
-    if (!keepResult) setResult(null);
+    if (!options.keepResult) setResult(null);
     setError(null);
     const controller = new AbortController();
     requestRef.current = controller;
@@ -64,7 +73,7 @@ export default function HomePage() {
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decisions: snapshot }),
+        body: JSON.stringify({ decisions: snapshot, eventId: options.eventId }),
         signal: controller.signal,
       });
       const body: unknown = await response.json();
@@ -93,14 +102,24 @@ export default function HomePage() {
     }
   }
 
+  function changeEvent(nextEventId?: string) {
+    if (busyRef.current) return;
+    setEventId(nextEventId);
+    setResult(null);
+    setError(null);
+    if (validate(decisions).ok) void calculate(decisions, { eventId: nextEventId });
+  }
+
   function apply(suggestion: Suggestion) {
     if (!result || !result.suggestions.some((item) => item.change === suggestion.change
       && item.delta === suggestion.delta)) return;
-    void calculate(applySuggestion(result.decisions, suggestion));
+    void calculate(applySuggestion(result.decisions, suggestion), { eventId: result.eventId });
   }
 
   function loadScenario(scenario: SavedScenario) {
-    void calculate(scenario.decisions);
+    if (busyRef.current) return;
+    setScenarioName(scenario.name);
+    void calculate(scenario.decisions, { eventId: scenario.eventId });
   }
 
   return (
@@ -123,10 +142,12 @@ export default function HomePage() {
         onCalculate={() => void calculate()} isCalculating={isCalculating} />
 
       <div ref={outcomeRef} tabIndex={-1} aria-busy={isCalculating} className="scroll-mt-6 focus:outline-none">
+        <EventPicker eventId={eventId} onChange={changeEvent} disabled={isCalculating}
+          beforeScore={result?.scoreBeforeEvent} afterScore={result?.calc.score} />
         {error && (
           <div role="alert" className="mt-8 rounded-xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">
             <p>{error}</p>
-            <button type="button" onClick={() => void calculate(decisions, Boolean(result))}
+            <button type="button" onClick={() => void calculate(decisions, { eventId, keepResult: Boolean(result) })}
               disabled={isCalculating} className="mt-3 rounded-lg border border-rose-300 px-4 py-2 font-semibold hover:bg-rose-100 disabled:opacity-50">
               Повторить расчёт
             </button>
@@ -134,11 +155,15 @@ export default function HomePage() {
         )}
         {(result || isCalculating) && (
           <section className="mt-10" aria-labelledby="outcome-title">
-            <h2 id="outcome-title" className="mb-5 text-2xl font-bold tracking-tight">Результат сценария</h2>
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <h2 id="outcome-title" className="text-2xl font-bold tracking-tight">Результат сценария</h2>
+              {result && <ReportDownload name={scenarioName} decisions={result.decisions} calc={result.calc}
+                cost={result.cost} report={result.report} activeEvent={result.activeEvent} disabled={isCalculating} />}
+            </div>
             {result ? (
               <div className="grid gap-5 lg:grid-cols-2">
                 <ScoreCard calc={result.calc} cost={result.cost} bestKnownScore={result.bestKnownScore}
-                  onShowOptimal={() => void calculate(result.optimalDecisions)} disabled={isCalculating} />
+                  onShowOptimal={() => void calculate(result.optimalDecisions, { eventId: result.eventId })} disabled={isCalculating} />
                 <Contributions contributions={result.calc.contributions} />
               </div>
             ) : (
@@ -152,16 +177,19 @@ export default function HomePage() {
                 ))}
               </div>
             )}
+            {result && <DistrictChart districts={result.calc.districts} affectedDistrictIds={Object.keys(result.activeEvent?.effects ?? {})} />}
             <AgentReport report={result?.report ?? null} steps={result?.steps ?? []}
               suggestions={result?.suggestions ?? []} aiError={result?.aiError}
-              isAnalyzing={isCalculating} onRetry={() => void calculate(result?.decisions ?? decisions, true)} onApply={apply} />
-            {result && <div className="mt-6"><DistrictTable districts={result.calc.districts} /></div>}
+              isAnalyzing={isCalculating} onRetry={() => void calculate(result?.decisions ?? decisions, { eventId, keepResult: true })} onApply={apply} />
+            {result && <div className="mt-6"><DistrictTable districts={result.calc.districts}
+              affectedDistrictIds={Object.keys(result.activeEvent?.effects ?? {})} /></div>}
           </section>
         )}
       </div>
 
       {!result && !isCalculating && <DistrictOverview />}
-      <Scenarios decisions={result?.decisions ?? null} isCalculating={isCalculating} onLoad={loadScenario} />
+      <Scenarios decisions={result?.decisions ?? null} eventId={result?.eventId} name={scenarioName}
+        onNameChange={setScenarioName} isCalculating={isCalculating} onLoad={loadScenario} />
     </main>
   );
 }

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import scenarios from "../data/sample/scenarios.json";
 import { score } from "../lib/engine/score";
+import { events } from "../lib/engine/events";
+import { suggestSwaps } from "../lib/engine/optimize";
 
 type CompletionRequest = {
   tool_choice?: "auto" | "none" | { type: "function"; function: { name: string } };
@@ -330,6 +332,106 @@ async function main(): Promise<void> {
       const lastToolResult = requests[4].messages.filter((message) => message.role === "tool").at(-1);
       assert.equal(JSON.parse(lastToolResult?.content ?? "{}").ok, false);
       assert.ok(result.steps.some((step) => step.name === "get_district_profile" && /неизвестный район/i.test(step.detail)));
+    });
+
+    const activeEvent = events.find(({ id }) => id === "almaty-heating")!;
+    const eventOptions = { eventId: activeEvent.id };
+    const eventCalc = score(example, eventOptions);
+    const eventSuggestions = dispatchTool("suggest_swaps", input, example, eventOptions).output as {
+      suggestions: { change: string; delta: number; newScore: number }[];
+    };
+    const eventReport = {
+      ...validReport,
+      summary: `${activeEvent.title}: Score ${eventCalc.score.toFixed(2)}. Последствия события учтены движком.`,
+      risks: ["Выбранные меры напрямую не восстанавливают теплосети пострадавшего района."],
+      recommendations: [{
+        change: eventSuggestions.suggestions[0].change,
+        expectedDelta: eventSuggestions.suggestions[0].delta,
+        why: "Общий прирост подтверждён движком с активным событием.",
+      }],
+    };
+
+    await check("все расчётные инструменты используют событие сервера", async () => {
+      const scored = dispatchTool("score_set", input, example, eventOptions).output as {
+        calc: { score: number; baseScore: number };
+      };
+      assert.equal(scored.calc.score, Number(eventCalc.score.toFixed(2)));
+      assert.equal(scored.calc.baseScore, Number(score([], eventOptions).score.toFixed(2)));
+      assert.notEqual(scored.calc.score, Number(score(example).score.toFixed(2)));
+      const contributions = dispatchTool("get_contributions", input, example, eventOptions).output as {
+        score: number; contributions: { measureId: string; contribution: number }[];
+      };
+      assert.equal(contributions.score, scored.calc.score);
+      assert.deepEqual(contributions.contributions.map(({ contribution }) => contribution),
+        eventCalc.contributions.map(({ contribution }) => Number(contribution.toFixed(2))));
+      const profile = dispatchTool("get_district_profile", { ...input, districtId: "almaty" }, example, eventOptions).output as {
+        indicators: { code: string; before: number; after: number }[];
+      };
+      const affected = eventCalc.districts.find(({ id }) => id === "almaty")!;
+      assert.equal(profile.indicators.find(({ code }) => code === "C1")?.before, affected.before.C1);
+      assert.equal(profile.indicators.find(({ code }) => code === "C1")?.after, affected.after.C1);
+      assert.deepEqual(eventSuggestions.suggestions.map(({ delta }) => delta),
+        suggestSwaps(example, eventOptions).map(({ delta }) => Number(delta.toFixed(2))));
+      const compared = dispatchTool("score_set", {
+        decisions: scenarios[2].decisions.map((decision) => ({ ...decision, districtId: decision.districtId ?? null })),
+      }, example, eventOptions).output as { comparison: { expectedDelta: number } };
+      assert.equal(compared.comparison.expectedDelta,
+        Number((score(scenarios[2].decisions, eventOptions).score - eventCalc.score).toFixed(2)));
+      assert.equal(requests.length, 0);
+    });
+
+    await check("get_active_event показывает ущерб и не позволяет подменить событие", async () => {
+      const output = dispatchTool("get_active_event", {}, example, eventOptions).output as {
+        event: { id: string }; scoreBeforeEvent: number; scoreAfterEvent: number;
+        affectedDistricts: { id: string; indicators: { code: string; eventDelta: number; afterEvent: number }[];
+          directMeasureResponses: unknown[] }[];
+      };
+      assert.equal(output.event.id, activeEvent.id);
+      assert.equal(output.scoreBeforeEvent, Number(score(example).score.toFixed(2)));
+      assert.equal(output.scoreAfterEvent, Number(eventCalc.score.toFixed(2)));
+      assert.equal(output.affectedDistricts[0].id, "almaty");
+      assert.equal(output.affectedDistricts[0].indicators[0].code, "C1");
+      assert.equal(output.affectedDistricts[0].indicators[0].eventDelta, -12);
+      assert.deepEqual(output.affectedDistricts[0].directMeasureResponses, []);
+      const blocked = dispatchTool("get_active_event", { eventId: "esil-flood" }, example, eventOptions).output as { ok: boolean };
+      assert.equal(blocked.ok, false);
+      const blockedScore = dispatchTool("score_set", { ...input, eventId: "esil-flood" }, example, eventOptions).output as { ok: boolean };
+      assert.equal(blockedScore.ok, false);
+      const inactive = dispatchTool("get_active_event", {}, example).output as { event: unknown };
+      assert.equal(inactive.event, null);
+    });
+
+    await check("активное событие требует четвёртый инструмент и подтверждённый отчёт", async () => {
+      respond = (_request, index) => firstTools(index) ?? (index === 3 ? tool("get_active_event", {}) : final(eventReport));
+      const result = await runAgent(example, eventOptions);
+      assert.ok(result.report, result.aiError);
+      assert.equal(requests.length, 5);
+      assert.deepEqual(requests[3].tool_choice, { type: "function", function: { name: "get_active_event" } });
+      assert.ok(result.steps.some(({ name }) => name === "get_active_event"));
+      const scored = JSON.parse(requests[4].messages.find(({ tool_call_id }) => tool_call_id === "call-score_set")!.content!) as {
+        eventId: string; calc: { score: number };
+      };
+      assert.equal(scored.eventId, activeEvent.id);
+      assert.equal(scored.calc.score, Number(eventCalc.score.toFixed(2)));
+      assert.equal(result.report.recommendations[0].expectedDelta, eventSuggestions.suggestions[0].delta);
+    });
+
+    await check("агент не может завершить разбор события без get_active_event", async () => {
+      respond = (_request, index) => firstTools(index) ?? final(eventReport);
+      const result = await runAgent(example, eventOptions);
+      assert.equal(result.report, null);
+      assert.match(result.aiError ?? "", /обязательн/);
+      assert.equal(requests.length, 4);
+    });
+
+    await check("отчёт о событии требует его явного объяснения", async () => {
+      respond = (_request, index) => firstTools(index) ?? (index === 3 ? tool("get_active_event", {})
+        : index === 4 ? final({ ...eventReport, summary: "Последствия учтены." }) : final(eventReport));
+      const result = await runAgent(example, eventOptions);
+      assert.ok(result.report, result.aiError);
+      assert.equal(requests.length, 6);
+      assert.equal(requests[5].tool_choice, "none");
+      assert.ok(result.steps.some(({ name, detail }) => name === "retry" && detail.includes(activeEvent.title)));
     });
 
     console.log(`Офлайн-проверки агента пройдены: ${passed}. Сетевые вызовы перехвачены.`);

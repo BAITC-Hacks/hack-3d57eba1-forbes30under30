@@ -8,6 +8,7 @@ import {
   measuresData, rules, synergies, type Decision,
 } from "./data";
 import { score } from "./score";
+import { getEvent, getStartingDistricts, type ScoreOptions } from "./events";
 import { validate } from "./validate";
 
 export type SwapSuggestion = {
@@ -22,12 +23,12 @@ export type BestSet = { decisions: Decision[]; score: number; cost: number };
 
 const measureById = new Map(measures.map((measure) => [measure.id, measure]));
 
-export function suggestSwaps(decisions: readonly Decision[]): SwapSuggestion[] {
+export function suggestSwaps(decisions: readonly Decision[], options: ScoreOptions = {}): SwapSuggestion[] {
   const validation = validate(decisions);
   if (!validation.ok) {
     throw new Error(`Невозможно подобрать замены: ${validation.errors.join(" ")}`);
   }
-  const originalScore = score(decisions).score;
+  const originalScore = score(decisions, options).score;
   const selected = new Set(decisions.map((decision) => decision.measureId));
   const suggestions: SwapSuggestion[] = [];
 
@@ -44,7 +45,7 @@ export function suggestSwaps(decisions: readonly Decision[]): SwapSuggestion[] {
           index === position ? replacement : decision
         ));
         if (!validate(candidate).ok) continue;
-        const newScore = score(candidate).score;
+        const newScore = score(candidate, options).score;
         const delta = newScore - originalScore;
         if (delta <= 0) continue;
         suggestions.push({
@@ -75,11 +76,11 @@ const bestSetSchema = z.object({
 }).strict();
 const cacheSchema = z.object({
   version: z.literal(cacheVersion),
-  fingerprint: z.literal(fingerprint),
+  fingerprint: z.string(),
   sets: z.array(bestSetSchema).length(10),
 }).strict();
 
-async function readCache(path: string): Promise<BestSet[] | null> {
+async function readCache(path: string, expectedFingerprint: string, options: ScoreOptions): Promise<BestSet[] | null> {
   let contents: string;
   try {
     contents = await readFile(path, "utf8");
@@ -89,7 +90,7 @@ async function readCache(path: string): Promise<BestSet[] | null> {
   }
   try {
     const parsed = cacheSchema.safeParse(JSON.parse(contents));
-    if (!parsed.success) return null;
+    if (!parsed.success || parsed.data.fingerprint !== expectedFingerprint) return null;
     const seen = new Set<string>();
     for (let index = 0; index < parsed.data.sets.length; index += 1) {
       const entry = parsed.data.sets[index];
@@ -99,7 +100,7 @@ async function readCache(path: string): Promise<BestSet[] | null> {
       if (seen.has(key)) return null;
       seen.add(key);
       const actualCost = entry.decisions.reduce((sum, decision) => sum + measureById.get(decision.measureId)!.cost, 0);
-      if (entry.cost !== actualCost || Math.abs(entry.score - score(entry.decisions).score) > 1e-9) return null;
+      if (entry.cost !== actualCost || Math.abs(entry.score - score(entry.decisions, options).score) > 1e-9) return null;
       if (index > 0 && entry.score > parsed.data.sets[index - 1].score) return null;
     }
     return parsed.data.sets;
@@ -109,11 +110,11 @@ async function readCache(path: string): Promise<BestSet[] | null> {
   }
 }
 
-async function writeCache(path: string, sets: BestSet[]): Promise<void> {
+async function writeCache(path: string, sets: BestSet[], expectedFingerprint: string): Promise<void> {
   const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`;
   try {
     await mkdir(dirname(path), { recursive: true });
-    await writeFile(temporary, JSON.stringify({ version: cacheVersion, fingerprint, sets }, null, 2) + "\n", "utf8");
+    await writeFile(temporary, JSON.stringify({ version: cacheVersion, fingerprint: expectedFingerprint, sets }, null, 2) + "\n", "utf8");
     await rename(temporary, path);
   } catch {
     await unlink(temporary).catch(() => undefined);
@@ -121,7 +122,7 @@ async function writeCache(path: string, sets: BestSet[]): Promise<void> {
   }
 }
 
-async function enumerateBest(): Promise<BestSet[]> {
+async function enumerateBest(options: ScoreOptions): Promise<BestSet[]> {
   const districtCount = districts.length;
   const indicatorCount = indicators.length;
   const measureCount = measures.length;
@@ -129,7 +130,7 @@ async function enumerateBest(): Promise<BestSet[]> {
   const cellCount = districtCount * indicatorCount;
   const weights = Float64Array.from(indicators, ({ weight }) => weight);
   const populations = Float64Array.from(districts, ({ population }) => population);
-  const initial = Float64Array.from(districts.flatMap((district) => (
+  const initial = Float64Array.from(getStartingDistricts(options).flatMap((district) => (
     indicators.map(({ code }) => district.values[code])
   )));
   const effects = measures.map((measure) => Float64Array.from(indicators, ({ code }) => (
@@ -316,15 +317,20 @@ async function enumerateBest(): Promise<BestSet[]> {
 
 const pendingSearches = new Map<string, Promise<BestSet[]>>();
 
-export function bestOverall(): Promise<BestSet[]> {
-  const path = resolve(process.cwd(), "data/best.json");
+export function bestOverall(options: ScoreOptions = {}): Promise<BestSet[]> {
+  const event = getEvent(options.eventId);
+  const searchOptions = event ? { eventId: event.id } : {};
+  const path = resolve(process.cwd(), `data/best.json${event ? `.${event.id}` : ""}`);
+  const expectedFingerprint = event
+    ? createHash("sha256").update(JSON.stringify({ fingerprint, event })).digest("hex")
+    : fingerprint;
   const pending = pendingSearches.get(path);
   if (pending) return pending;
   const search = (async () => {
-    const cached = await readCache(path);
+    const cached = await readCache(path, expectedFingerprint, searchOptions);
     if (cached) return cached;
-    const sets = await enumerateBest();
-    await writeCache(path, sets);
+    const sets = await enumerateBest(searchOptions);
+    await writeCache(path, sets, expectedFingerprint);
     return sets;
   })().finally(() => pendingSearches.delete(path));
   pendingSearches.set(path, search);

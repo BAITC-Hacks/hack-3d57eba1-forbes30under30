@@ -12,6 +12,12 @@ export const suggestionSchema = z.object({
 export type Suggestion = z.infer<typeof suggestionSchema>;
 
 export const analysisSchema = z.object({
+  eventId: z.string().optional(),
+  activeEvent: z.object({
+    id: z.string(), title: z.string(), description: z.string(),
+    effects: z.record(z.string(), z.partialRecord(indicatorSchema, number)),
+  }).nullable(),
+  scoreBeforeEvent: number,
   calc: z.object({
     score: number, baseScore: number, delta: number, dAvg: number, minDistrict: number,
     districts: z.array(z.object({

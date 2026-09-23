@@ -13,6 +13,7 @@ export const savedScenarioSchema = z.object({
   score: z.number().finite(),
   cost: z.number().finite().min(0).max(100),
   createdAt: z.string().datetime(),
+  eventId: z.string().optional(),
 }).strict();
 
 export type SavedScenario = z.infer<typeof savedScenarioSchema>;

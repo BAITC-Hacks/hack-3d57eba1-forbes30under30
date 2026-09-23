@@ -1,7 +1,7 @@
 import { indicators } from "@/lib/engine/data";
 import type { DistrictScore } from "@/lib/engine/score";
 
-type DistrictTableProps = { districts: DistrictScore[] };
+type DistrictTableProps = { districts: DistrictScore[]; affectedDistrictIds?: string[] };
 
 const number = new Intl.NumberFormat("ru-RU", {
   maximumFractionDigits: 2,
@@ -24,7 +24,7 @@ function Change({ before, after }: { before: number; after: number }) {
   );
 }
 
-export default function DistrictTable({ districts }: DistrictTableProps) {
+export default function DistrictTable({ districts, affectedDistrictIds = [] }: DistrictTableProps) {
   return (
     <section aria-labelledby="district-table-title" className="min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="p-5 sm:p-6">
@@ -32,6 +32,7 @@ export default function DistrictTable({ districts }: DistrictTableProps) {
         <p id="district-table-help" className="mt-2 text-sm leading-6 text-slate-600">
           До → после. Зелёный — рост, красный — снижение. Красный фон отмечает значения ниже 40.
           Названия показателей доступны при наведении или фокусе на заголовке.
+          {affectedDistrictIds.length > 0 && " Исходные значения уже учитывают событие; затронутый район отмечен жёлтым."}
         </p>
       </div>
       <div
@@ -67,7 +68,10 @@ export default function DistrictTable({ districts }: DistrictTableProps) {
           <tbody className="divide-y divide-slate-100">
             {districts.map((district) => (
               <tr key={district.id}>
-                <th scope="row" className="sticky left-0 z-10 bg-white px-5 py-5 font-semibold text-slate-900">{district.name}</th>
+                <th scope="row" className={`sticky left-0 z-10 px-5 py-5 font-semibold text-slate-900 ${affectedDistrictIds.includes(district.id) ? "bg-amber-50" : "bg-white"}`}>
+                  {district.name}
+                  {affectedDistrictIds.includes(district.id) && <span className="mt-1 block text-xs font-medium text-amber-800">Событие</span>}
+                </th>
                 {indicators.map(({ code }) => (
                   <td key={code} className="px-2 py-5 text-center">
                     <Change before={district.before[code]} after={district.after[code]} />

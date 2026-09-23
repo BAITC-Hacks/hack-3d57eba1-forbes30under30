@@ -1,4 +1,5 @@
 import { districts, measures, type Decision } from "../../engine/data";
+import type { ScoreOptions } from "../../engine/events";
 import { suggestSwaps } from "../../engine/optimize";
 import { validate } from "../../engine/validate";
 import {
@@ -16,7 +17,7 @@ function decisionLabel(decision: Decision): string {
   return `${measure.id} «${measure.name}» (${place})`;
 }
 
-export function execute(args: unknown, originalDecisions: readonly Decision[]): ToolResult {
+export function execute(args: unknown, originalDecisions: readonly Decision[], options: ScoreOptions = {}): ToolResult {
   const { decisions: wireDecisions } = inputSchema.parse(args);
   const decisions = normalizeToolDecisions(wireDecisions);
   const validation = validate(decisions);
@@ -28,7 +29,7 @@ export function execute(args: unknown, originalDecisions: readonly Decision[]): 
     return { output: { ok: false, errors: [error] }, summary: error };
   }
 
-  const suggestions = suggestSwaps(decisions).map((suggestion) => {
+  const suggestions = suggestSwaps(decisions, options).map((suggestion) => {
     const previous = decisions.find(({ measureId }) => measureId === suggestion.replace)!;
     const replacement: Decision = {
       measureId: suggestion.with,
@@ -40,7 +41,9 @@ export function execute(args: unknown, originalDecisions: readonly Decision[]): 
     };
   });
   return {
-    output: displayNumbers({ ok: true, tool: "suggest_swaps", decisions, suggestions }),
+    output: displayNumbers({ ok: true, tool: "suggest_swaps", decisions, suggestions,
+      ...(options.eventId === undefined ? {} : { eventId: options.eventId }),
+    }),
     summary: suggestions.length === 0
       ? "Подтверждённых улучшений заменой одной меры не найдено."
       : `Найдено улучшений: ${suggestions.length}; лучший прирост Score +${suggestions[0].delta.toFixed(2)}.`,

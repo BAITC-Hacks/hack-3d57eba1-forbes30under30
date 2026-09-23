@@ -1,7 +1,8 @@
 import {
   districts, indicators, rules, synergies,
-  type Decision, type IndicatorCode, type IndicatorValues,
+  type Decision, type District, type IndicatorCode, type IndicatorValues,
 } from "./data";
+import { getStartingDistricts, type ScoreOptions } from "./events";
 import { resolveDecisions, type ResolvedDecision } from "./validate";
 
 export type DistrictScore = {
@@ -38,8 +39,8 @@ function districtScore(values: IndicatorValues): number {
   ), 0);
 }
 
-function calculate(decisions: readonly ResolvedDecision[]) {
-  const results: DistrictScore[] = districts.map((district) => ({
+function calculate(decisions: readonly ResolvedDecision[], startingDistricts: readonly District[]) {
+  const results: DistrictScore[] = startingDistricts.map((district) => ({
     id: district.id,
     name: district.name,
     before: { ...district.values },
@@ -104,17 +105,18 @@ function calculate(decisions: readonly ResolvedDecision[]) {
 
 // Incomplete sets are intentional: score([]) gives the baseline and removing
 // one measure gives its marginal contribution. Validate a full set separately.
-export function score(input: readonly Decision[]): ScoreResult {
+export function score(input: readonly Decision[], options: ScoreOptions = {}): ScoreResult {
   const { decisions, errors } = resolveDecisions(input);
   if (errors.length > 0) {
     throw new Error(`Невозможно рассчитать Score: ${errors.join(" ")}`);
   }
-  const result = calculate(decisions);
-  const baseScore = calculate([]).score;
+  const startingDistricts = getStartingDistricts(options);
+  const result = calculate(decisions, startingDistricts);
+  const baseScore = calculate([], startingDistricts).score;
   const contributions = decisions.map((decision, index): Contribution => ({
     measureId: decision.measure.id,
     ...(decision.districtId === undefined ? {} : { districtId: decision.districtId }),
-    contribution: result.score - calculate(decisions.filter((_, other) => other !== index)).score,
+    contribution: result.score - calculate(decisions.filter((_, other) => other !== index), startingDistricts).score,
   }));
 
   return { ...result, baseScore, delta: result.score - baseScore, contributions };

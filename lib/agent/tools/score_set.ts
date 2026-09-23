@@ -3,6 +3,7 @@ import {
   type Decision,
 } from "../../engine/data";
 import { score } from "../../engine/score";
+import type { ScoreOptions } from "../../engine/events";
 import { validate } from "../../engine/validate";
 import {
   decisionsInputSchema, displayNumbers, measureFacts, normalizeToolDecisions,
@@ -12,7 +13,7 @@ import {
 export const inputSchema = decisionsInputSchema;
 export const description = "Проверяет и рассчитывает полный набор через движок. Возвращает Score, дельту к базе, показатели районов, критические значения, штраф, синергии, лаги, стоимость и каталог мер. Для другого допустимого набора возвращает comparison.expectedDelta относительно исходного сценария. Рекомендации разрешены только из suggest_swaps; comparison не добавляет допустимых замен. Недопустимые наборы не рассчитываются.";
 
-export function execute(args: unknown, originalDecisions: readonly Decision[]): ToolResult {
+export function execute(args: unknown, originalDecisions: readonly Decision[], options: ScoreOptions = {}): ToolResult {
   const { decisions: wireDecisions } = inputSchema.parse(args);
   const decisions = normalizeToolDecisions(wireDecisions);
   const validation = validate(decisions);
@@ -23,8 +24,8 @@ export function execute(args: unknown, originalDecisions: readonly Decision[]): 
     };
   }
 
-  const calc = score(decisions);
-  const baseline = score([]);
+  const calc = score(decisions, options);
+  const baseline = score([], options);
   const selectedMeasures = decisions.map((decision) => {
     const measure = measures.find((item) => item.id === decision.measureId)!;
     return measureFacts(measure, decision.districtId);
@@ -42,7 +43,7 @@ export function execute(args: unknown, originalDecisions: readonly Decision[]): 
     )),
   }));
   const comparison = sameDecisions(decisions, originalDecisions) ? undefined : {
-    expectedDelta: calc.score - score(originalDecisions).score,
+    expectedDelta: calc.score - score(originalDecisions, options).score,
     decisions,
   };
 
@@ -51,6 +52,7 @@ export function execute(args: unknown, originalDecisions: readonly Decision[]): 
       ok: true,
       decisions,
       calc,
+      ...(options.eventId === undefined ? {} : { eventId: options.eventId }),
       budget: { limit: rules.budget, cost, remaining: rules.budget - cost },
       weakestDistrict: {
         id: weakestDistrict.id, name: weakestDistrict.name, D: weakestDistrict.D_after,

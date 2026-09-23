@@ -4,6 +4,7 @@ import type { ChatCompletionMessageParam, ChatCompletionToolChoiceOption } from 
 import { ZodError } from "zod";
 import { createOpenAIClient, OPENAI_MODEL } from "../openai";
 import type { Decision } from "../engine/data";
+import { getEvent, type ScoreOptions } from "../engine/events";
 import { validate } from "../engine/validate";
 import { reportWireSchema, type AgentReport, type AgentStep } from "./schemas";
 import { agentTools, decisionsInputSchema, dispatchTool, normalizeToolDecisions } from "./tools";
@@ -32,23 +33,25 @@ function setKey(decisions: readonly Decision[]): string {
     .sort((a, b) => String(a[0]).localeCompare(String(b[0]))));
 }
 
-export async function runAgent(decisions: readonly Decision[]): Promise<AgentResult> {
+export async function runAgent(decisions: readonly Decision[], options: ScoreOptions = {}): Promise<AgentResult> {
   const steps: AgentStep[] = [];
   const controller = new AbortController();
   const deadline = Date.now() + TIMEOUT_MS;
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
     if (!validate(decisions).ok) throw new AgentError("Для AI-анализа нужен корректный набор решений.");
+    const activeEvent = getEvent(options.eventId);
     if (!process.env.OPENAI_API_KEY?.trim()) {
       throw new AgentError("Не задан OPENAI_API_KEY. Добавьте ключ в окружение сервера и повторите анализ.");
     }
     const client = createOpenAIClient();
     const messages: ChatCompletionMessageParam[] = [
       { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: scenarioPrompt(decisions) },
+      { role: "user", content: scenarioPrompt(decisions, activeEvent) },
     ];
     const outputs: unknown[] = [];
     const required = ["score_set", "get_contributions", "suggest_swaps"];
+    if (activeEvent) required.push("get_active_event");
     let completedRequired = 0;
     let toolCalls = 0;
     let reportRetries = 0;
@@ -90,13 +93,13 @@ export async function runAgent(decisions: readonly Decision[]): Promise<AgentRes
         let summary: string;
         try {
           args = JSON.parse(call.function.arguments);
-          if (mandatory) {
+          if (mandatory && mandatory !== "get_active_event") {
             const input = decisionsInputSchema.parse(args);
             if (setKey(normalizeToolDecisions(input.decisions)) !== setKey(decisions)) {
               throw new AgentError("Обязательный инструмент должен анализировать исходный набор без изменений.");
             }
           }
-          const executed = dispatchTool(call.function.name, args, decisions);
+          const executed = dispatchTool(call.function.name, args, decisions, options);
           output = executed.output;
           summary = executed.summary;
           const failed = output !== null && typeof output === "object" && "ok" in output && output.ok === false;

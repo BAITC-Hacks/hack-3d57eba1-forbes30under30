@@ -66,6 +66,14 @@ async function main(): Promise<void> {
   }
 
   const example = scenarios[0].decisions;
+  const eventOptions = { eventId: "almaty-heating" };
+  const eventBase = score([], eventOptions);
+  const eventExample = score(example, eventOptions);
+  equal("Авария снижает базовый Score", eventBase.score < base.score, true);
+  equal("Авария снижает Score примера", eventExample.score < score(example).score, true);
+  equal("База с аварией в Алматы", eventBase.score.toFixed(2), "51.36");
+  equal("Пример с аварией в Алматы", eventExample.score.toFixed(2), "55.34");
+  console.log(`Событие «Авария на теплосетях в Алматы»: база = ${eventBase.score.toFixed(2)}, пример = ${eventExample.score.toFixed(2)} (без события: ${base.score.toFixed(2)} и ${score(example).score.toFixed(2)})`);
   function reject(label: string, input: unknown, reason: RegExp): void {
     const result = validate(input);
     equal(`${label}: отклонён`, result.ok, false);

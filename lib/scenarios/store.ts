@@ -5,6 +5,7 @@ import { z } from "zod";
 import { measures, type Decision } from "../engine/data";
 import { score } from "../engine/score";
 import { validate } from "../engine/validate";
+import { getEvent } from "../engine/events";
 import { savedScenarioSchema, type SavedScenario } from "./schema";
 
 const scenariosSchema = z.array(savedScenarioSchema);
@@ -29,6 +30,7 @@ async function readScenarios(filePath: string): Promise<SavedScenario[]> {
   if (scenarios.some((scenario) => !validate(scenario.decisions).ok)) {
     throw new Error("Файл сценариев содержит недопустимый набор решений.");
   }
+  scenarios.forEach((scenario) => getEvent(scenario.eventId));
   return scenarios;
 }
 
@@ -48,6 +50,7 @@ export async function listScenarios(): Promise<SavedScenario[]> {
 export function saveScenario(input: {
   name: string;
   decisions: Decision[];
+  eventId?: string;
 }): Promise<SavedScenario> {
   const filePath = scenariosPath();
   const save = writes.then(async () => {
@@ -55,7 +58,8 @@ export function saveScenario(input: {
       throw new Error("Нельзя сохранить недопустимый набор решений.");
     }
     const scenarios = await readScenarios(filePath);
-    const calc = score(input.decisions);
+    getEvent(input.eventId);
+    const calc = score(input.decisions, { eventId: input.eventId });
     const scenario = savedScenarioSchema.parse({
       name: input.name,
       decisions: input.decisions,
@@ -65,6 +69,7 @@ export function saveScenario(input: {
           ? measure.cost : 0)
       ), 0),
       createdAt: new Date().toISOString(),
+      ...(input.eventId === undefined ? {} : { eventId: input.eventId }),
     });
     await mkdir(path.dirname(filePath), { recursive: true });
     const temporaryPath = `${filePath}.${randomUUID()}.tmp`;
