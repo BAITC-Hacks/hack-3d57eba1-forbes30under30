@@ -1,0 +1,38 @@
+[
+  {
+    "name": "Пример из ТЗ",
+    "expectedScore": 56.54,
+    "expectedCost": 95,
+    "decisions": [
+      { "measureId": "M7", "districtId": "nura" },
+      { "measureId": "M8", "districtId": "nura" },
+      { "measureId": "M10", "districtId": "nura" },
+      { "measureId": "M12" },
+      { "measureId": "M5", "districtId": "saryarka" }
+    ]
+  },
+  {
+    "name": "Дешёвый набор",
+    "expectedScore": 55.67,
+    "expectedCost": 61,
+    "decisions": [
+      { "measureId": "M9", "districtId": "nura" },
+      { "measureId": "M11", "districtId": "nura" },
+      { "measureId": "M10", "districtId": "nura" },
+      { "measureId": "M12" },
+      { "measureId": "M4", "districtId": "nura" }
+    ]
+  },
+  {
+    "name": "Лучший известный набор",
+    "expectedScore": 57.24,
+    "expectedCost": 98,
+    "decisions": [
+      { "measureId": "M2" },
+      { "measureId": "M3", "districtId": "nura" },
+      { "measureId": "M8", "districtId": "nura" },
+      { "measureId": "M9", "districtId": "nura" },
+      { "measureId": "M14" }
+    ]
+  }
+]
